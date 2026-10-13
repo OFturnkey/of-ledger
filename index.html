@@ -12,14 +12,21 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="OF Ledger">
 <script>
-  // Opened from the installed app: go straight to the dashboard.
-  // Opened as a normal web page: stay here so Chrome can offer "Install app".
   var DASHBOARD = 'https://script.google.com/macros/s/AKfycbz551KX261AS8y6a8q2OnLgb7w-VMzH1qcb6u3lO1V6iAkn_sPpPzk2a_RM8oEPslkanQ/exec';
-  var asApp = /[?&]source=app\b/.test(location.search) ||
+  var DASHBOARD_TEST = 'https://script.google.com/macros/s/AKfycbyHT9YjMNdudkRgRijX49Pa2lEXGdQBxjDVpM7z5TE-/dev';
+  // false until morning alerts go live: then the button shows on the plain launcher page too.
+  var ALERTS_PUBLIC = false;
+  var params = new URLSearchParams(location.search);
+  var wantAlerts = params.has('alerts');
+  var tab = /^(tasks|ledger|dir)$/.test(params.get('tab') || '') ? params.get('tab') : '';
+  // Opened from the installed app (or a notification): go straight to the dashboard.
+  // Opened as a normal web page, or to set up alerts: stay here.
+  var asApp = params.get('source') === 'app' ||
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
     window.navigator.standalone === true;
-  if (asApp) location.replace(DASHBOARD);
+  if (asApp && !wantAlerts) location.replace(DASHBOARD + (tab ? '?tab=' + tab : ''));
 </script>
+<script src="alerts-config.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -31,8 +38,10 @@
     padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
     text-align: center;
   }
+  main { width: 100%; max-width: 460px; }
   .logo { width: 128px; height: 128px; border-radius: 28px; display: block; margin: 0 auto 20px; }
   h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: 0.02em; }
+  h2 { margin: 0 0 6px; font-size: 18px; }
   .sub { margin: 0 0 28px; color: #B9BDB9; font-size: 15px; }
   .open {
     display: inline-flex; align-items: center; gap: 14px; text-decoration: none;
@@ -40,12 +49,19 @@
     padding: 14px 28px 14px 14px; border-radius: 14px; min-height: 64px;
   }
   .open img { width: 40px; height: 40px; border-radius: 9px; }
-  .open:focus-visible, .install:focus-visible { outline: 3px solid #DDE8C9; outline-offset: 3px; }
-  .install {
+  .open:focus-visible, .ghost:focus-visible, input:focus-visible { outline: 3px solid #DDE8C9; outline-offset: 3px; }
+  .ghost {
     margin-top: 16px; background: transparent; color: #FFFFFF; border: 1px solid #8A8F8B; border-radius: 10px;
     font: inherit; font-weight: 600; padding: 12px 22px; min-height: 48px; cursor: pointer;
   }
+  .ghost:disabled { opacity: 0.6; cursor: default; }
   .note { margin: 22px auto 0; max-width: 420px; color: #B9BDB9; font-size: 14px; }
+  .alerts { margin-top: 28px; padding-top: 22px; border-top: 1px solid #3A3D3B; }
+  .alerts p { margin: 0 0 12px; color: #B9BDB9; font-size: 14px; }
+  .alerts label { display: block; font-size: 13px; color: #B9BDB9; margin-bottom: 6px; }
+  .alerts input { width: 100%; max-width: 320px; padding: 10px 12px; border-radius: 8px; border: 1px solid #8A8F8B; background: #2A2D2B; color: #FFFFFF; font: inherit; min-height: 44px; }
+  .status { margin-top: 12px; font-size: 14px; color: #DDE8C9; min-height: 1.5em; }
+  .status.err { color: #FFB4AB; }
 </style>
 </head>
 <body>
@@ -56,11 +72,22 @@
     <a class="open" id="open" href="https://script.google.com/macros/s/AKfycbz551KX261AS8y6a8q2OnLgb7w-VMzH1qcb6u3lO1V6iAkn_sPpPzk2a_RM8oEPslkanQ/exec">
       <img src="icons/icon-192.png" alt="">Open OF Ledger
     </a>
-    <div><button type="button" class="install" id="install" hidden>Install app</button></div>
+    <div><button type="button" class="ghost" id="install" hidden>Install app</button></div>
     <p class="note" id="note">To add OF Ledger as an app, use Chrome’s <b>Install app</b> or <b>Add to Home screen</b>. Sign in with a Google account the sheet is shared with.</p>
+
+    <section class="alerts" id="alerts" aria-labelledby="alerts-h" hidden>
+      <h2 id="alerts-h">Morning alerts</h2>
+      <p>A notification at 7:00 every morning with the tasks due today and overdue. For owners’ devices.</p>
+      <label for="devName">Name this device</label>
+      <input id="devName" autocomplete="off" maxlength="60">
+      <div><button type="button" class="ghost" id="alertsBtn">Turn on morning alerts</button></div>
+      <div class="status" id="alertsStatus" role="status" aria-live="polite"></div>
+    </section>
   </main>
 <script>
-  if (asApp) {
+  var target = params.get('via') === 'dev' ? DASHBOARD_TEST : DASHBOARD;
+  document.getElementById('open').href = target + (tab ? '?tab=' + tab : '');
+  if (asApp && !wantAlerts) {
     document.getElementById('status').textContent = 'Opening the dashboard…';
     document.getElementById('note').textContent = 'If it doesn’t open by itself, tap the button.';
   }
@@ -81,6 +108,62 @@
   window.addEventListener('appinstalled', function () {
     installBtn.hidden = true;
     document.getElementById('note').textContent = 'Installed. Open OF Ledger from your Start menu, desktop or home screen.';
+  });
+
+  /* ---------- morning alerts ---------- */
+  var FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  var alertsBox = document.getElementById('alerts');
+  var alertsBtn = document.getElementById('alertsBtn');
+  var alertsStatus = document.getElementById('alertsStatus');
+  var devName = document.getElementById('devName');
+  alertsBox.hidden = !(wantAlerts || ALERTS_PUBLIC);
+  devName.value = guessDevice();
+
+  function guessDevice() {
+    var ua = navigator.userAgent;
+    if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? 'Android phone' : 'Android tablet';
+    if (/Windows/i.test(ua)) return 'Windows laptop';
+    if (/Macintosh/i.test(ua)) return 'Mac';
+    return 'This device';
+  }
+  function say(text, isErr) { alertsStatus.textContent = text; alertsStatus.className = 'status' + (isErr ? ' err' : ''); }
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = function () { reject(new Error('Couldn’t load ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  alertsBtn.addEventListener('click', function () {
+    var cfg = window.OF_ALERTS || {};
+    if (!cfg.firebase || !cfg.vapidKey) { say('Morning alerts aren’t set up yet.', true); return; }
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      say('This browser can’t receive alerts. Open this page in Chrome.', true); return;
+    }
+    alertsBtn.disabled = true;
+    say('Asking for permission…');
+    Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') throw new Error('Notifications are blocked for OF Ledger. Allow them in the browser or app settings, then try again.');
+      say('Connecting this device…');
+      return navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; });
+    }).then(function (reg) {
+      return loadScript(FIREBASE_SDK + 'firebase-app-compat.js')
+        .then(function () { return loadScript(FIREBASE_SDK + 'firebase-messaging-compat.js'); })
+        .then(function () {
+          if (!firebase.apps.length) firebase.initializeApp(cfg.firebase);
+          return firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
+        });
+    }).then(function (token) {
+      if (!token) throw new Error('Couldn’t get an alert address for this device. Try again.');
+      say('Saving this device in the ledger…');
+      var name = devName.value.trim() || guessDevice();
+      // The ledger (signed in with your Google account) stores the device and confirms with a message.
+      location.href = target + '?tab=dir&registerDevice=1&device=' + encodeURIComponent(name) + '&token=' + encodeURIComponent(token);
+    }).catch(function (err) {
+      alertsBtn.disabled = false;
+      say(err && err.message ? err.message : String(err), true);
+    });
   });
 </script>
 </body>
