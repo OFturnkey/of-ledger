@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OF Ledger</title>
+<meta name="description" content="OF Turnkey site ledger">
+<meta name="theme-color" content="#1C1E1D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="OF Ledger">
+<script>
+  // Opened from the installed app: go straight to the dashboard.
+  // Opened as a normal web page: stay here so Chrome can offer "Install app".
+  var DASHBOARD = 'https://script.google.com/macros/s/AKfycbz551KX261AS8y6a8q2OnLgb7w-VMzH1qcb6u3lO1V6iAkn_sPpPzk2a_RM8oEPslkanQ/exec';
+  var asApp = /[?&]source=app\b/.test(location.search) ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true;
+  if (asApp) location.replace(DASHBOARD);
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: #1C1E1D; color: #FFFFFF;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+  }
+  .logo { width: 128px; height: 128px; border-radius: 28px; display: block; margin: 0 auto 20px; }
+  h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: 0.02em; }
+  .sub { margin: 0 0 28px; color: #B9BDB9; font-size: 15px; }
+  .open {
+    display: inline-flex; align-items: center; gap: 14px; text-decoration: none;
+    background: #FFFFFF; color: #1C1E1D; font-weight: 700; font-size: 20px;
+    padding: 14px 28px 14px 14px; border-radius: 14px; min-height: 64px;
+  }
+  .open img { width: 40px; height: 40px; border-radius: 9px; }
+  .open:focus-visible, .install:focus-visible { outline: 3px solid #DDE8C9; outline-offset: 3px; }
+  .install {
+    margin-top: 16px; background: transparent; color: #FFFFFF; border: 1px solid #8A8F8B; border-radius: 10px;
+    font: inherit; font-weight: 600; padding: 12px 22px; min-height: 48px; cursor: pointer;
+  }
+  .note { margin: 22px auto 0; max-width: 420px; color: #B9BDB9; font-size: 14px; }
+</style>
+</head>
+<body>
+  <main>
+    <img class="logo" src="icons/icon-512.png" alt="OF Turnkey logo: a white key on black">
+    <h1>OF Ledger</h1>
+    <p class="sub" id="status">OF Turnkey site ledger</p>
+    <a class="open" id="open" href="https://script.google.com/macros/s/AKfycbz551KX261AS8y6a8q2OnLgb7w-VMzH1qcb6u3lO1V6iAkn_sPpPzk2a_RM8oEPslkanQ/exec">
+      <img src="icons/icon-192.png" alt="">Open OF Ledger
+    </a>
+    <div><button type="button" class="install" id="install" hidden>Install app</button></div>
+    <p class="note" id="note">To add OF Ledger as an app, use Chrome’s <b>Install app</b> or <b>Add to Home screen</b>. Sign in with a Google account the sheet is shared with.</p>
+  </main>
+<script>
+  if (asApp) {
+    document.getElementById('status').textContent = 'Opening the dashboard…';
+    document.getElementById('note').textContent = 'If it doesn’t open by itself, tap the button.';
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+
+  var deferred = null;
+  var installBtn = document.getElementById('install');
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferred = e;
+    installBtn.hidden = false;
+  });
+  installBtn.addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.finally(function () { deferred = null; installBtn.hidden = true; });
+  });
+  window.addEventListener('appinstalled', function () {
+    installBtn.hidden = true;
+    document.getElementById('note').textContent = 'Installed. Open OF Ledger from your Start menu, desktop or home screen.';
+  });
+</script>
+</body>
+</html>
