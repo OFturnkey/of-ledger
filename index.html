@@ -14,8 +14,9 @@
 <script>
   var DASHBOARD = 'https://script.google.com/macros/s/AKfycbz551KX261AS8y6a8q2OnLgb7w-VMzH1qcb6u3lO1V6iAkn_sPpPzk2a_RM8oEPslkanQ/exec';
   var DASHBOARD_TEST = 'https://script.google.com/macros/s/AKfycbyHT9YjMNdudkRgRijX49Pa2lEXGdQBxjDVpM7z5TE-/dev';
-  // false until morning alerts go live: then the button shows on the plain launcher page too.
-  var ALERTS_PUBLIC = false;
+  // Morning alerts are live: the button also shows on the plain launcher page (not in the installed app,
+  // which goes straight to the dashboard; there, use Directory → Morning alerts → Turn on alerts on this device).
+  var ALERTS_PUBLIC = true;
   var params = new URLSearchParams(location.search);
   var wantAlerts = params.has('alerts');
   var tab = /^(tasks|ledger|dir)$/.test(params.get('tab') || '') ? params.get('tab') : '';
