@@ -1,7 +1,7 @@
 // Service worker for the OF Ledger launcher.
 // - fetch: Chrome offers "Install app" only when a service worker with a fetch handler is registered.
 //   It caches nothing; every request goes straight to the network.
-// - push / notificationclick: shows the 10:00 morning brief sent through Firebase Cloud Messaging and
+// - push / notificationclick: shows the 7:00 morning brief sent through Firebase Cloud Messaging and
 //   opens the ledger's Tasks tab when it is tapped.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
