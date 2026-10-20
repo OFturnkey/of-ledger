@@ -7,12 +7,11 @@
 <meta name="description" content="O F Turnkey test app">
 <meta name="theme-color" content="#1C1E1D">
 <meta name="robots" content="noindex">
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
-<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <script>
   // Test launcher: signs the person in with Google, then opens the TEST app with the sign-in token.
-  // The live launcher (one folder up) is not affected.
+  // Deliberately no web app manifest and no service worker: this folder is inside the installed live app's
+  // scope, and Chrome reads any manifest here as an update to that app. Open it as a normal Chrome tab.
   var CLIENT_ID = '174226011711-g53cncop1stgb4vsmt5ia4j0qfsluc25.apps.googleusercontent.com';
   var APP = 'https://script.google.com/macros/s/AKfycbz2P0G5dOAN5jTFEa7UOEntbASpUndzLT40vQ9DdWQY56hyqqNlOAqagscpfLqp1Q599A/exec';
   var params = new URLSearchParams(location.search);
@@ -37,11 +36,7 @@
   .status { margin: 0 0 24px; color: #B9BDB9; font-size: 15px; min-height: 1.5em; }
   .status.err { color: #FFB4AB; }
   .gbtn { display: flex; justify-content: center; min-height: 48px; }
-  .ghost {
-    margin-top: 16px; background: transparent; color: #FFFFFF; border: 1px solid #8A8F8B; border-radius: 10px;
-    font: inherit; font-weight: 600; padding: 12px 22px; min-height: 48px; cursor: pointer;
-  }
-  .ghost:focus-visible, a:focus-visible { outline: 3px solid #DDE8C9; outline-offset: 3px; }
+  a:focus-visible { outline: 3px solid #DDE8C9; outline-offset: 3px; }
   .note { margin: 22px auto 0; max-width: 420px; color: #B9BDB9; font-size: 14px; }
   .note a { color: #DDE8C9; }
 </style>
@@ -53,7 +48,6 @@
     <h1>O F Turnkey</h1>
     <p class="status" id="status" role="status" aria-live="polite">Getting sign-in ready…</p>
     <div class="gbtn" id="gbtn"></div>
-    <div><button type="button" class="ghost" id="install" hidden>Install test app</button></div>
     <p class="note">Test version. Sign in with the Google account you use for O F Turnkey. <a href="../privacy.html">Privacy</a></p>
   </main>
 <script>
@@ -85,16 +79,6 @@
     if (!switching) google.accounts.id.prompt();
   }
   function gisFailed() { say('Couldn’t reach Google. Check your connection, then reload this page.', true); }
-
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js').catch(function () {});
-  var deferred = null;
-  var installBtn = document.getElementById('install');
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; installBtn.hidden = false; });
-  installBtn.addEventListener('click', function () {
-    if (!deferred) return;
-    deferred.prompt();
-    deferred.userChoice.finally(function () { deferred = null; installBtn.hidden = true; });
-  });
 </script>
 <script src="https://accounts.google.com/gsi/client" async onload="gisReady()" onerror="gisFailed()"></script>
 </body>
