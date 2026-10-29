@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "OF Ledger",
-  "short_name": "OF Ledger",
-  "description": "OF Turnkey site ledger: payments, receipts, follow-ups and tasks.",
+  "name": "O F Turnkey",
+  "short_name": "O F Turnkey",
+  "description": "O F Turnkey: site ledger, tasks, photos, queries and drawings.",
   "start_url": "./?source=app",
   "scope": "./",
   "display": "standalone",
