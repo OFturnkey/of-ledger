@@ -486,7 +486,7 @@ h2, h3 { margin: 0; }
 .eng-form input { border: 1px solid #C9CAC3; border-radius: 10px; padding: 0 12px; min-height: 48px; font: inherit; font-size: 15px; color: #1C1E1D; background: #FFFFFF; }
 .eng-form .btn-save { min-height: 48px; }
 .eng-foot { text-align: center; }
-.eng-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: 560px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #FFFFFF; border-top: 1px solid #DEDED8; padding: 4px 4px calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 6; }
+.eng-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: 560px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #FFFFFF; border-top: 1px solid #DEDED8; padding: 4px 4px calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 6; }
 .eng-tab { border: 0; background: transparent; font: inherit; font-size: 13px; color: #5E605C; min-height: 48px; cursor: pointer; }
 .eng-tab.on { color: #1C1E1D; font-weight: 600; box-shadow: inset 0 3px 0 #1C1E1D; }
 #engSnack { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
@@ -826,7 +826,7 @@ label.btn-main.ph-pick-btn { color: #FFFFFF; }
 /* Team: an email breaks only at the @ (never mid-word). */
 .drow-text .drow-email { overflow-wrap: normal; word-break: normal; }
 /* Phones: sections that aren't built yet are hidden. */
-@media (max-width: 699px) { .psec.off, .eng-tab[data-tab="schedule"] { display: none; } }
+@media (max-width: 699px) { .psec.off { display: none; } }
 /* Narrow screens: an opened query or photo sits right under its own card / day. */
 .q-card, .ph-inline { scroll-margin-top: 12px; }
 .eng .q-card, .eng .ph-inline { scroll-margin-top: 64px; }
@@ -957,3 +957,185 @@ label.btn-main.ph-pick-btn { color: #FFFFFF; }
 .eng-task.held input[type=checkbox] { outline: 2px solid #E8C96A; outline-offset: 1px; }
 .reg-line { cursor: pointer; }
 .reg-line:hover td, .reg-line:focus-within td { background: #F6F8F2; }
+/* ---------- Schedule (release 2; boards ScheduleWhole, Schedule, EngPhone) ---------- */
+.sc-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 16px; margin: 14px 0 12px; }
+.sc-info { font-weight: 600; }
+.sc-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sc-file { cursor: pointer; display: inline-flex; align-items: center; }
+.sc-scroll { overflow-x: auto; background: #FFFFFF; border: 1px solid #DEDED8; border-radius: 14px; -webkit-overflow-scrolling: touch; }
+.sc-chart { min-width: 1180px; }
+.sc-chart.compact { min-width: 860px; }
+.sc-row { display: grid; grid-template-columns: 40px 300px 110px 44px minmax(0, 1fr); gap: 0 10px; align-items: center; width: 100%; box-sizing: border-box;
+  border: 0; border-top: 1px solid #F0F0EB; background: #FFFFFF; padding: 0 14px; min-height: 30px; text-align: left; font: inherit; color: #1C1E1D; cursor: pointer; }
+.sc-chart.compact { min-width: 820px; }
+/* Phones: number and name stay put while the bars scroll under them (no gap between them for a bar to show through). */
+.sc-chart.compact .sc-row { grid-template-columns: 30px 122px 40px minmax(0, 1fr); gap: 0; padding: 0 6px 0 0; }
+.sc-chart.compact .sc-row > .sc-no { position: sticky; left: 0; z-index: 1; align-self: stretch; display: flex; align-items: center; padding-left: 6px; background: inherit; font-size: 11px; }
+.sc-chart.compact .sc-row > .sc-name { position: sticky; left: 30px; z-index: 1; align-self: stretch; line-height: 30px; padding-right: 4px; background: inherit; font-size: 13px; box-shadow: 4px 0 4px -4px rgba(0, 0, 0, 0.15); }
+.sc-chart.compact .sc-row > .sc-done { padding-right: 4px; }
+.sc-chart.compact .sc-row.lv1 .sc-name { padding-left: 8px; }
+.sc-chart.compact .sc-row.lv2 .sc-name { padding-left: 16px; }
+.sc-chart.compact .sc-head .sc-name { box-shadow: none; }
+.sc-row:hover { background: #F7F8F4; }
+.sc-row.on { background: #EEF2E6; }
+.sc-row.sc-sec { background: #F7F7F4; border-top: 1px solid #DEDED8; }
+.sc-row.sc-sec .sc-name { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.sc-row.sc-head { cursor: default; border-top: 0; padding-top: 10px; padding-bottom: 4px; align-items: end; }
+.sc-row.sc-head:hover { background: #FFFFFF; }
+.sc-no { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8C86; white-space: nowrap; }
+.sc-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-row.lv1 .sc-name { padding-left: 14px; color: #3A3C39; font-size: 13px; }
+.sc-row.lv2 .sc-name { padding-left: 28px; color: #5E605C; font-size: 13px; }
+.sc-row.gone .sc-name { color: #8A8C86; font-style: italic; }
+.sc-team { font-size: 12px; color: #5E605C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-done { font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: right; color: #3A3C39; }
+.sc-track { position: relative; display: block; height: 30px; background-image: var(--sc-wk); }
+.sc-track.sc-axis { height: 38px; background: none; }
+.sc-month { position: absolute; top: 0; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.sc-wk { position: absolute; top: 20px; padding-left: 3px; border-left: 1px solid #C9CAC3; font-size: 11px; color: #5E605C; font-family: 'IBM Plex Mono', monospace; }
+.sc-plan { position: absolute; top: 7px; height: 16px; box-sizing: border-box; background: #DCE4CC; border: 1px solid #9DB07A; border-radius: 4px; }
+.sc-plan.buy { background: #E3E9F2; border-color: #8FA3BF; }
+.sc-plan.sum { background: repeating-linear-gradient(45deg, #EEF2E6 0 4px, #DCE4CC 4px 8px); }
+.sc-row.on .sc-plan { border-color: #455B28; box-shadow: 0 0 0 1px #455B28; }
+.sc-act { position: absolute; top: 13px; height: 5px; background: #1C1E1D; border-radius: 2px; pointer-events: none; }
+.sc-over { position: absolute; top: 13px; height: 5px; background: #A3271B; border-radius: 2px; pointer-events: none; }
+.sc-secbar { position: absolute; top: 13px; height: 3px; background: #9DB07A; border-radius: 1px; }
+.sc-today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #455B28; pointer-events: none; }
+.sc-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: #5E605C; white-space: normal; }
+.sc-legend i { display: inline-block; width: 16px; height: 9px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.sc-legend .lg-plan { background: #DCE4CC; border: 1px solid #9DB07A; }
+.sc-legend .lg-act { background: #1C1E1D; height: 5px; }
+.sc-legend .lg-over { background: #A3271B; height: 5px; }
+.sc-legend .lg-buy { background: #E3E9F2; border: 1px solid #8FA3BF; }
+.sc-inline { position: sticky; left: 0; box-sizing: border-box; width: min(720px, calc(100vw - 40px)); padding: 6px 14px 14px; border-top: 1px solid #F0F0EB; background: #FFFFFF; }
+.sc-detail h3 { margin: 2px 0 8px; font-size: 17px; }
+.sc-weeks { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; }
+.sc-weeks th, .sc-weeks td { text-align: left; padding: 6px 8px 6px 0; border-top: 1px solid #ECECE7; }
+.sc-weeks th { font-weight: 500; color: #5E605C; }
+.sc-weeks .num { text-align: right; font-family: 'IBM Plex Mono', monospace; }
+.sc-weeks .bad { color: #A3271B; font-weight: 600; }
+.sc-foot { margin: 8px 2px 0; }
+.warn-line { background: #FFF6DA; color: #5E4500; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+ul.warn-line { padding-left: 28px; }
+.nowrap { white-space: nowrap; }
+/* Import preview */
+.sc-imp { display: flex; flex-direction: column; gap: 10px; }
+.sc-imp h3 { margin: 0; font-size: 18px; }
+.sc-imp p { margin: 0; }
+.sc-imp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.sc-imp-wrap { overflow-x: auto; border: 1px solid #ECECE7; border-radius: 10px; }
+.sc-imp table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sc-imp th, .sc-imp td { padding: 5px 8px; border-top: 1px solid #ECECE7; text-align: left; vertical-align: top; }
+.sc-imp thead th { border-top: 0; font-weight: 500; color: #5E605C; background: #FAFAF7; }
+.sc-imp tr.sec td { background: #F7F7F4; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em; }
+.sc-imp tr.lv1 td:nth-child(2) { padding-left: 22px; }
+.sc-imp tr.lv2 td:nth-child(2) { padding-left: 38px; }
+.sc-imp tr.ch td { background: #FFF9E6; }
+.sc-imp .num { text-align: right; }
+.sc-left { background: #FDF0EE; border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.sc-left ul { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.sc-left select { margin-top: 4px; min-height: 40px; max-width: 100%; border: 1px solid #C4C6C0; border-radius: 6px; padding: 4px 8px; background: #FFFFFF; font: inherit; }
+/* Weekly log */
+.sl-card { padding: 14px 16px; }
+.sl-card .eng-h2 { margin: 0; }
+.sl-due { font-size: 12px; color: #5E605C; font-weight: 500; margin-top: 2px; }
+.sl-due.late { color: #A3271B; }
+.sl-done { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.sl-panel { max-width: 720px; }
+.sl-panel h3 { margin: 0; font-size: 17px; }
+.sl-panel select, .sl-add select { min-height: 44px; border: 1px solid #C4C6C0; border-radius: 8px; padding: 4px 8px; background: #FFFFFF; font: inherit; max-width: 100%; }
+.sl-row { padding: 10px 0 12px; border-top: 1px solid #ECECE7; display: flex; flex-direction: column; gap: 6px; }
+.sl-form { margin-top: 8px; }
+.sl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sl-name { font-weight: 500; }
+.sl-tag { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.sl-tag.ok { color: #455B28; }
+.sl-tag.bad { color: #A3271B; }
+.sl-tag.done { color: #5E605C; }
+.sl-tag.plan { color: #1F3A5F; }
+.sl-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.sl-step { border: 1px solid #DEDED8; background: #FFFFFF; color: #1C1E1D; border-radius: 8px; min-height: 44px; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.sl-step.on { background: #1C1E1D; color: #FFFFFF; border-color: #1C1E1D; }
+.sl-why { display: flex; flex-direction: column; gap: 6px; background: #FFF6DA; border-radius: 10px; padding: 10px; font-size: 13px; color: #5E4500; font-weight: 500; }
+.sl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.sl-chip { border: 1px solid #E3CF8C; background: #FFFFFF; color: #1C1E1D; border-radius: 999px; padding: 0 10px; min-height: 40px; font: inherit; font-size: 13px; font-weight: 400; cursor: pointer; }
+.sl-chip.on { background: #1C1E1D; color: #FFFFFF; border-color: #1C1E1D; }
+.sl-foot { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid #ECECE7; }
+.sl-save { border: 0; background: #455B28; color: #FFFFFF; border-radius: 10px; min-height: 48px; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }/* Today's label on the axis; the team (agency) beside its bar; the team under a name in the weekly log. */
+.sc-axis .sc-tlabel-line { top: 30px; }
+.sc-tlabel { position: absolute; top: 0; transform: translateX(-50%); padding: 0 4px; border-radius: 3px; background: #455B28; color: #FFFFFF; font-size: 11px; font-weight: 600; white-space: nowrap; z-index: 1; }
+.sc-blabel { position: absolute; top: 8px; font-size: 11px; line-height: 14px; color: #5E605C; white-space: nowrap; pointer-events: none; background: rgba(255, 255, 255, 0.85); padding: 0 2px; border-radius: 2px; }
+.sl-team { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #ECECE7; color: #3A3C39; font-size: 12px; font-weight: 500; vertical-align: 1px; }/* Section headings: bigger and bolder than the rows, ordinary case, on a light band; the name runs across the Team
+   and Done columns; folded, it adds its dates and % done. */
+.sc-row.sc-sec { min-height: 38px; background: #ECEFE4; border-top: 1px solid #D5D9CC; }
+.sc-row.sc-sec:hover { background: #E4E9DA; }
+.sc-row.sc-sec .sc-name { grid-column: 2 / -2; font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; color: #1C1E1D; }
+.sc-row.sc-sec .sc-no { font-size: 13px; color: #3A3C39; }
+.sc-secsum { font-weight: 500; font-size: 13px; color: #455B28; }
+.sc-chart.compact .sc-row.sc-sec > .sc-name { line-height: 38px; font-size: 14px; }.sl-team.unknown { background: #FFEDB3; color: #5E4500; }/* The axis has three rows: month, Monday dates, then the Today label (never over a month name). */
+.sc-track.sc-axis { height: 54px; }
+.sc-tlabel { top: 36px; }
+.sc-axis .sc-tlabel-line { top: 50px; }
+/* An ended week with nothing logged: that stretch of the plan bar is hatched grey. */
+.sc-unlog { position: absolute; top: 7px; height: 16px; box-sizing: border-box; border-radius: 3px; pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0 3px, rgba(138, 140, 134, 0.55) 3px 5px); border: 1px dashed #8A8C86; }
+.sc-legend .lg-unlog { background: repeating-linear-gradient(135deg, #FFFFFF 0 3px, #A7AAA2 3px 5px); border: 1px dashed #8A8C86; }/* Phone Schedule: "This week" list (upright use) */
+.sw { padding: 12px 14px; display: flex; flex-direction: column; }
+.sw-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; margin-bottom: 4px; }
+.sw-h h3 { margin: 0; font-size: 18px; }
+.sw-sub { margin: 14px 0 2px; font-size: 13px; font-weight: 600; color: #5E605C; }
+.sw-sub.bad { color: #A3271B; margin-top: 6px; }
+.sw-item { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border: 0; border-top: 1px solid #ECECE7; background: #FFFFFF; padding: 10px 2px; font: inherit; color: #1C1E1D; cursor: pointer; }
+.sw-item.on { background: #EEF2E6; }
+.sw-item.late { box-shadow: inset 3px 0 0 #A3271B; padding-left: 10px; }
+.sw-name { font-weight: 500; font-size: 15px; }
+.sw-days { font-size: 13px; color: #5E605C; font-family: 'IBM Plex Mono', monospace; }
+.sw-line { font-size: 13px; color: #455B28; font-weight: 500; }
+.sw-item.late .sw-line { color: #A3271B; }
+.sw-detail { padding: 4px 4px 12px; border-top: 1px dashed #ECECE7; }
+.sw-none { margin: 6px 0; font-size: 14px; }
+.sw-whole { width: 100%; margin-top: 10px; min-height: 48px; }
+.sw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 10px; }
+/* Upright: a hint to turn the phone. Sideways (a phone's short height): the whole chart uses the width. */
+@media (orientation: landscape) { .sw-turn { display: none; } }
+@media (orientation: landscape) and (max-height: 520px) {
+  .sc-chart.compact { min-width: 1100px; }
+  .sc-chart.compact .sc-row { grid-template-columns: 34px 240px 44px minmax(0, 1fr); }
+  .sc-chart.compact .sc-row > .sc-name { left: 34px; font-size: 14px; }
+}@media (orientation: landscape) and (max-height: 520px) {
+  .eng.eng-wide { max-width: none; }
+  .eng.eng-wide .eng-main { padding-left: 8px; padding-right: 8px; }
+}.sl-lower { background: #FDF0EE; color: #7E1E14; }
+.sl-lower .sl-chip { border-color: #E3A49C; }
+.sl-lower .sl-chip.on { background: #1C1E1D; border-color: #1C1E1D; }
+.sc-redone { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; color: #7E1E14; background: #FDF0EE; border-radius: 4px; padding: 0 4px; }/* Phones: the team under the name, in the column that stays put. */
+.sc-chart.compact .sc-row:not(.sc-sec):not(.sc-head) > .sc-name { display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
+.sc-n1, .sc-n2 { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-n2 { font-size: 11px; color: #5E605C; }
+/* "This week": the line's colour says how far the last value is from the plan by Sunday. */
+.sw-item.ok .sw-line { color: #455B28; }
+.sw-item.behind .sw-line { color: #8A5A00; }
+.sw-item.far .sw-line { color: #A3271B; }
+.sw-item.none .sw-line { color: #5E605C; }
+.sw-item.behind { box-shadow: inset 3px 0 0 #E8C96A; padding-left: 10px; }
+.sw-item.far { box-shadow: inset 3px 0 0 #A3271B; padding-left: 10px; }
+/* Whole chart sideways: the bottom bar would cover rows; it comes back when the phone is upright. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .eng.eng-wide .eng-nav { display: none; }
+  .eng.eng-wide .eng-main { padding-bottom: 16px; }
+}.env-strip button { font: inherit; font-weight: 600; border: 1px solid #5E4500; background: #FFFFFF; color: #5E4500; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.env-strip .fake-on { color: #A3271B; }
+/* Log card title: the project in capitals with its code, so it can't be mistaken for the site picked at the top. */
+.sl-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sl-title .eng-h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: 0.01em; }
+
+/* Owner's weekly-log line in Needs you: one line per activity behind (red far, amber a little), then finished and logged. */
+.ls { display: block; margin-top: 2px; }
+.ls-line { display: block; }
+.ls-line.far { color: #A3271B; }
+.ls-line.behind { color: #8A5A00; }
+.ls-line.ls-more { color: #5C615D; }
+.ls-fin { color: #455B28; font-weight: 600; }
+
+/* Engineer Today: the weekly-log reminder at the top (red once 10 am has passed). */
+.sl-top.late b { color: #A3271B; }
