@@ -1,8 +1,8 @@
 // Settings for the LIVE site (ofturnkey.github.io/of-ledger). The test site has its own copy of this file.
-// The publish script fills in 2026-10-29 19:20.
+// The publish script fills in 2026-11-04 17:23.
 var CONFIG = {
   env: 'live',
-  version: '2026-10-29 19:20',
+  version: '2026-11-04 17:23',
   // The live Apps Script web app (the same address the old app had; data only, it never serves screens).
   api: 'https://script.google.com/macros/s/AKfycbx_nKh4qcxfQMd-s9FS_bsYjUMueoE7U-bKdTKdKY6nj1ssNeaafDOwLPr4ZFLeurpK/exec',
   // "O F Turnkey launcher" OAuth client (Sign in with Google). Not a secret.
