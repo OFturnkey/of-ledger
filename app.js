@@ -184,9 +184,10 @@ function actKey(el) { const d = el.dataset; return d.act + ':' + (d.id || d.code
 // Moving around (tabs, sections, opening a query or a task) is never "busy", even when it loads something in the
 // background: the bottom bar and tabs must always answer. Only saves lock their button.
 const NAV_ACTS = { 'eng-tab': 1, tab: 1, 'proj-tab': 1, 'proj-sec': 1, 'q-view': 1, 'q-open': 1, 'eq-open': 1, 'eq-back': 1, 'eq-register': 1, 'eng-task-open': 1,
-  'task-src': 1, 'needs-query': 1, 'today-query': 1, 'today-mine': 1, 'ph-open': 1, 'ph-open-site': 1, lightbox: 1, 'lightbox-close': 1,
+  'task-src': 1, 'needs-query': 1, 'today-query': 1, 'today-mine': 1, 'ph-open': 1, 'ph-open-site': 1, lightbox: 1, 'ph-view': 1,
   'eng-done-toggle': 1, 'done-toggle': 1, 'reg-open': 1, 'sc-log-jump': 1,
-  'sc-pick': 1, 'sc-fold': 1, 'sc-whole': 1, 'sc-logsum': 1, 'sc-lower-fix': 1, 'sc-lower-ok': 1, 'sc-step': 1, 'sc-why': 1, 'sc-log-open': 1, 'sc-ownerlog': 1, 'sc-imp-only': 1, 'sc-imp-cancel': 1 };
+  'sc-pick': 1, 'sc-fold': 1, 'sc-whole': 1, 'sc-logsum': 1, 'sc-lower-fix': 1, 'sc-lower-ok': 1, 'sc-step': 1, 'sc-why': 1, 'sc-log-open': 1, 'sc-ownerlog': 1, 'sc-imp-only': 1, 'sc-imp-cancel': 1,
+  'sc-actlog': 1, 'sc-actnote': 1, 'sc-note-ask': 1, 'ph-pick': 1, 'ph-pickday': 1, 'ph-pick-save': 1 };
 // Background reads (and "opened") never make a button look busy.
 const QUIET_CALLS = { getData: 1, getSite: 1, listPhotos: 1, photoThumbs: 1, photoFull: 1, listQueries: 1, devices: 1, markSeen: 1, changed: 1, refresh: 1 };
 // Reads only: safe to ask again.
@@ -1856,6 +1857,10 @@ function alertsPanelHtml() {
     (S.briefs ? S.briefs.map((b) => '<div class="brief"><b>' + esc(b.name) + '</b> <span class="muted small">' + esc(b.email) + '</span>' +
       '<div class="brief-card"><div class="brief-title">' + esc(b.title) + '</div><pre>' + esc(b.body) + '</pre></div>' +
       (b.total ? '' : '<span class="muted small">Nothing due: on a normal morning nothing is sent.</span>') + '</div>').join('') : '') +
+    // Mondays 12:00, to owners: whose weekly log is missing, and who logged what.
+    (S.briefs ? '<div class="brief brief-log"><b>Monday 12:00 · weekly log alert to owners</b> <span class="muted small">' + esc(S.logAlert ? niceDay(S.logAlert.monday) + ', with today’s data' : '') + '</span>' +
+      (S.logAlert ? '<div class="brief-card"><div class="brief-title">' + esc(S.logAlert.title) + '</div><pre>' + esc(S.logAlert.body) + '</pre></div>'
+        : '<p class="empty">Nothing to say this Monday (no site with planned work last week).</p>') + '</div>' : '') +
     // Test app: the instant alerts it would have sent (new site photos, queries, replies, tasks), newest first.
     (S.instant ? '<div class="brief"><b>Instant alerts the test app would have sent</b> <span class="muted small">(never sent)</span>' +
       (S.instant.length ? S.instant.map((x) => '<div class="brief-card"><div class="brief-title">' + esc(x.title) + '</div><pre>' + esc(x.body) + '</pre>' +
@@ -2238,18 +2243,26 @@ function liveProjects() {
   return ((S.data && S.data.projects) || []).filter((p) => p.active && p.stage !== 'archive')
     .sort((a, b) => (order[a.stage] - order[b.stage]) || (a.code < b.code ? -1 : 1));
 }
+// The plan's last day (its longest bar's end), or 0 without a plan.
+function planLastDay(code) {
+  const sc = schedAll()[code];
+  if (!sc || !sc.acts.length) return 0;
+  const spans = LC.planSpans(sc.acts);
+  return Object.keys(spans).reduce((m, k) => Math.max(m, spans[k].end || 0), 0);
+}
 function stagePill(stage) { return '<span class="stage-pill st-' + esc(stage) + '">' + esc(STAGE_LABEL[stage] || stage) + '</span>'; }
-// "Execution · Day 38 of 113 · Handover Sun 7 Feb · Site engineer Venky"
+// "Execution · Started Mon 2 Nov · Day 38 of 113 · Handover Sun 7 Feb · Site engineer Venky"
 // The project is called by its code everywhere; the site name (its location, e.g. E-City) leads this line.
+// Without a handover day in Directory, the plan's last day stands in for it ("Handover … (plan)").
 function projectLine(p) {
   const bits = [STAGE_LABEL[p.stage]];
   if (p.scheduleType === 'light' || p.scheduleType === 'full') bits.push(p.scheduleType + ' schedule');
-  const t = todayIso(), n = dayNumber(p, t);
+  const t = todayIso(), n = dayNumber(p, t), planEnd = planLastDay(p.code), last = p.handoverDay || planEnd;
   if (p.stage === 'execution' && n !== null) {
     if (n < 1) bits.push((p.day1 ? 'Site starts ' : 'Planned start ') + niceDay(day1Of(p)));
-    else bits.push('Day ' + n + (p.handoverDay ? ' of ' + p.handoverDay : ''));
+    else bits.push('Started ' + niceDay(day1Of(p)), 'Day ' + n + (last ? ' of ' + last : ''));
   }
-  if (p.handoverDay && day1Of(p)) bits.push('Handover ' + niceDay(dayDate(p, p.handoverDay)));
+  if (last && day1Of(p)) bits.push('Handover ' + niceDay(dayDate(p, last)) + (p.handoverDay ? '' : ' (plan)'));
   const eng = engineersOf(p.code);
   if (eng.length) bits.push('Site engineer ' + eng.map((u) => u.name).join(', '));
   return bits.join(' · ');
@@ -2963,6 +2976,7 @@ function photoDay(at) { return String(at || '').slice(0, 10); }
 function photoFeedHtml(photos, opts) {
   opts = opts || {};
   if (!photos.length) return '<p class="empty">No site photos yet.</p>';
+  S.feedIds = photos.map((p) => p.id); // the viewer swipes through them in this order
   const days = [];
   photos.forEach((p) => { const d = photoDay(p.at); let g = days.find((x) => x.d === d); if (!g) days.push(g = { d: d, items: [] }); g.items.push(p); });
   const users = (S.engineer ? S.site.users : S.data.users) || [];
@@ -2971,9 +2985,12 @@ function photoFeedHtml(photos, opts) {
   ((S.photos && S.photos.comments) || []).forEach((c) => { counts[c.photoId] = (counts[c.photoId] || 0) + 1; });
   return days.map((g) => {
     const who = Array.from(new Set(g.items.map((p) => nameOf(p.by)))).join(', ');
-    return '<section class="ph-day' + (opts.cards ? ' card' : '') + '"><div class="ph-day-h"><b>' + esc(g.d === todayIso() ? 'Today · ' + niceDay(g.d) : niceDay(g.d)) + '</b><span class="muted">' + esc(who) + ' · ' + plural(g.items.length, 'photo', 'photos') + '</span></div>' +
-      '<div class="ph-grid">' + g.items.map((p) => '<div class="ph-cell"><button type="button" class="ph-tile' + (S.photoSel === p.id ? ' on' : '') + '" data-act="ph-open" data-id="' + esc(p.id) + '">' +
-        '<span class="ph-frame">' + thumbImg(p) + (counts[p.id] ? '<span class="ph-badge">' + plural(counts[p.id], 'comment', 'comments') + '</span>' : '') + '</span>' +
+    // Select mode (owners): a tick on each photo, "Select all" for the day.
+    const picked = (id) => opts.pick && S.phPick.ids.indexOf(id) >= 0;
+    return '<section class="ph-day' + (opts.cards ? ' card' : '') + '"><div class="ph-day-h"><b>' + esc(g.d === todayIso() ? 'Today · ' + niceDay(g.d) : niceDay(g.d)) + '</b><span class="muted">' + esc(who) + ' · ' + plural(g.items.length, 'photo', 'photos') + '</span>' +
+      (opts.pick ? '<button type="button" class="link-btn ph-pickday" data-act="ph-pickday" data-d="' + esc(g.d) + '">' + (g.items.every((p) => picked(p.id)) ? 'Clear day' : 'Select all') + '</button>' : '') + '</div>' +
+      '<div class="ph-grid' + (opts.pick ? ' picking' : '') + '">' + g.items.map((p) => '<div class="ph-cell"><button type="button" class="ph-tile' + (!opts.pick && S.photoSel === p.id ? ' on' : '') + (picked(p.id) ? ' picked' : '') + '" data-act="ph-open" data-id="' + esc(p.id) + '"' + (opts.pick ? ' aria-pressed="' + picked(p.id) + '"' : '') + '>' +
+        '<span class="ph-frame">' + thumbImg(p) + (counts[p.id] ? '<span class="ph-badge">' + plural(counts[p.id], 'comment', 'comments') + '</span>' : '') + (opts.pick ? '<span class="ph-tick" aria-hidden="true">' + (picked(p.id) ? '✓' : '') + '</span>' : '') + '</span>' +
         '<span class="ph-area">' + esc(p.area || '—') + '</span></button>' +
         (opts.ask ? '<button type="button" class="link-btn ph-ask" data-act="ph-ask" data-id="' + esc(p.id) + '">Ask about this photo</button>' : '') + '</div>').join('') + '</div>' +
       // Phones and narrow windows: the opened photo right under its day (one at a time).
@@ -2990,8 +3007,11 @@ function photoPanelHtml() {
   const comments = S.photos.comments.filter((c) => c.photoId === p.id);
   // Owners and associates can turn a comment into a task (associates: for the project's engineers).
   const owner = !S.engineer && (isOwner() || isAssociate());
-  const full = S.fullPhoto && S.fullPhoto.id === p.id ? '<img class="ph-big" src="' + S.fullPhoto.url + '" alt="' + esc(p.area || 'Site photo') + '">'
-    : '<span class="ph-big-wrap">' + thumbImg(p, 'ph-big') + '<span class="ph-hint">Loading full size…</span></span>';
+  // Tapping the picture opens the full-screen viewer (zoom, swipe to the next photo of the feed).
+  const full = '<button type="button" class="ph-view" data-act="ph-view" data-id="' + esc(p.id) + '" aria-label="Full screen">' +
+    (S.fullPhoto && S.fullPhoto.id === p.id ? '<img class="ph-big" src="' + S.fullPhoto.url + '" alt="' + esc(p.area || 'Site photo') + '">'
+      : '<span class="ph-big-wrap">' + thumbImg(p, 'ph-big') + '<span class="ph-hint">Loading full size…</span></span>') +
+    '<span class="ph-view-tag">⤢ Full screen</span></button>';
   const c = S.photoComment || (S.photoComment = { text: '', due: addDays(todayIso(), 2), err: '' });
   if (c.who === undefined) c.who = owner ? defaultTaskFor(p.by, p.project) : '';
   const canDelete = (!S.engineer && isOwner()) || (p.by === (S.me && S.me.email) && Date.now() - Date.parse(p.at.replace(' ', 'T') + ':00+05:30') < 86400000);
@@ -3095,11 +3115,13 @@ function askAboutPhoto(id) {
 // under its day). Opening the feed (a tap on Site, All photos, a photo or "N new site photos") clears "N new site
 // photos"; photos arriving while the screen just stays open don't count as seen.
 function projectSiteHtml(p) {
-  if (S.photosFor !== p.code) { S.photosFor = p.code; S.photos = null; S.photoSel = ''; loadPhotos(p.code); }
+  if (S.photosFor !== p.code) { S.photosFor = p.code; S.photos = null; S.photoSel = ''; S.phPick = null; loadPhotos(p.code); }
   if (S.photosSeenWant === p.code && S.photos && S.photos.project === p.code) { S.photosSeenWant = ''; markPhotosSeen(p.code); }
-  return '<div class="pgrid"><div class="pmain"><div class="sec-head"><h3>Photos from site</h3>' +
-    '<button type="button" class="btn-outline" data-act="ph-reload">Refresh</button></div>' +
-    (S.photos ? photoFeedHtml(S.photos.photos, { cards: true }) : '<p class="empty">Loading…</p>') + '</div>' +
+  const pick = canSavePhotos() && S.phPick;
+  return '<div class="pgrid"><div class="pmain"><div class="sec-head"><h3>Photos from site</h3><span class="sec-btns">' +
+    (canSavePhotos() && S.photos && S.photos.photos.length && !pick ? '<button type="button" class="btn-outline" data-act="ph-pick">Select</button>' : '') +
+    '<button type="button" class="btn-outline" data-act="ph-reload">Refresh</button></span></div>' +
+    (S.photos ? photoFeedHtml(S.photos.photos, { cards: true, pick: pick }) : '<p class="empty">Loading…</p>') + (pick ? pickBarHtml() : '') + '</div>' +
     (photosInline() ? '' : '<div class="pside"><section class="card ph-side" id="phPanel">' + photoPanelHtml() + '</section></div>') + '</div>';
 }
 // "N new site photos" clears for this person once they have opened the project's Site photos.
@@ -3127,8 +3149,12 @@ function newPhotosOf(code) {
 // Query buttons (owners and engineers). Returns true when it handled the click.
 function queryClick(act, el) {
   const id = el.dataset.id, v = el.dataset.v;
-  if (act === 'lightbox') showLightbox(id);
-  else if (act === 'lightbox-close') hideLightbox();
+  if (act === 'lightbox') {
+    // The photos next to it (a comment's or query's strip) are swiped through in the viewer.
+    const strip = el.closest('.q-photos');
+    const ids = strip ? Array.from(strip.querySelectorAll('[data-act="lightbox"]')).map((b) => b.dataset.id) : [id];
+    openViewer(ids, id);
+  }
   else if (act === 'eq-open') {
     // Opened from Today (Needs you, Waiting for an answer): on its own, and the back button returns there, to the
     // same place. In the Queries list: under its own card (tap it again to close), scrolled to the top.
@@ -3210,23 +3236,331 @@ function queryClick(act, el) {
   else return false;
   return true;
 }
-// A photo full size, over everything (tap to close).
-function showLightbox(id) {
-  hideLightbox();
-  const box = document.createElement('div');
-  box.id = 'lightbox';
-  box.className = 'lightbox';
-  box.setAttribute('data-act', 'lightbox-close');
-  box.innerHTML = (S.thumbs[id] ? '<img src="' + S.thumbs[id] + '" alt="Photo">' : '') + '<span class="ph-hint">Loading full size… tap to close</span>';
+// The photo viewer, full screen over everything (owners and engineers): pinch, double-tap or the mouse wheel to zoom,
+// drag a zoomed photo to move it, swipe (or ‹ › and the arrow keys) for the next photo, swipe down, ×, Esc or the
+// phone's Back to close. It lives outside the page, so redraws underneath leave it alone.
+const VIEW = { box: null, ids: [], i: 0, onClose: null, s: 1, x: 0, y: 0, pts: new Map(), g: null, lastTap: 0, full: new Map() };
+const VIEW_KEEP = 8; // full-size photos kept while swiping back and forth
+function openViewer(ids, id, onClose) {
+  if (VIEW.box) closeViewer(true);
+  VIEW.ids = ids.filter((x) => !fileInfo(x));
+  VIEW.i = Math.max(0, VIEW.ids.indexOf(id));
+  if (!VIEW.ids.length) return;
+  VIEW.onClose = onClose || null;
+  if (S.fullPhoto && S.fullPhoto.url) viewKeep(S.fullPhoto.id, S.fullPhoto.url);
+  const box = VIEW.box = document.createElement('div');
+  box.id = 'viewer';
+  box.className = 'pv';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', 'Photo viewer');
+  box.innerHTML = '<div class="pv-top"><div class="pv-cap"><b class="pv-n"></b><span class="pv-info"></span></div>' +
+    '<span class="pv-btns"><button type="button" class="pv-save" hidden></button><button type="button" class="pv-x" aria-label="Close">×</button></span></div>' +
+    '<div class="pv-stage"><img class="pv-img" alt="Photo" draggable="false"></div>' +
+    '<button type="button" class="pv-nav pv-prev" aria-label="Previous photo">‹</button><button type="button" class="pv-nav pv-next" aria-label="Next photo">›</button>' +
+    '<span class="pv-hint"></span>';
   document.body.appendChild(box);
-  api('photoFull', [id]).then((res) => { const b = $('lightbox'); if (b) b.innerHTML = '<img src="' + res.url + '" alt="Photo"><span class="ph-hint">Tap to close</span>'; }, () => { /* the preview stays */ });
+  document.body.classList.add('pv-on');
+  box.querySelector('.pv-x').addEventListener('click', () => closeViewer());
+  box.querySelector('.pv-save').addEventListener('click', viewSave);
+  box.querySelector('.pv-prev').addEventListener('click', () => viewGo(-1));
+  box.querySelector('.pv-next').addEventListener('click', () => viewGo(1));
+  const stage = box.querySelector('.pv-stage');
+  stage.addEventListener('pointerdown', viewDown);
+  stage.addEventListener('pointermove', viewMove);
+  ['pointerup', 'pointercancel'].forEach((t) => stage.addEventListener(t, viewUp));
+  box.querySelector('.pv-img').addEventListener('load', viewFit);
+  stage.addEventListener('wheel', (ev) => { ev.preventDefault(); viewZoomAt(VIEW.s * (ev.deltaY < 0 ? 1.25 : 0.8), ev.clientX, ev.clientY); }, { passive: false });
+  // The phone's Back closes the viewer, not the app.
+  try { history.pushState({ pv: 1 }, ''); } catch (e) { /* not available: × still closes */ }
+  viewShow(0);
 }
-function hideLightbox() { const b = $('lightbox'); if (b) b.remove(); }
+function closeViewer(quiet) {
+  if (!VIEW.box) return;
+  const last = VIEW.ids[VIEW.i], then = VIEW.onClose;
+  VIEW.box.remove();
+  VIEW.box = null; VIEW.onClose = null; VIEW.pts.clear(); VIEW.g = null;
+  document.body.classList.remove('pv-on');
+  if (history.state && history.state.pv) { try { history.back(); } catch (e) { /* ignore */ } }
+  if (!quiet && then) then(last);
+}
+window.addEventListener('popstate', () => { if (VIEW.box) closeViewer(); });
+// The whole photo fits the screen, tall or wide (sized here, not left to the browser's CSS); the small picture
+// shown while the full size loads is stretched to the same size. Again when the window or phone turns.
+function viewFit() {
+  const img = VIEW.box && VIEW.box.querySelector('.pv-img'), st = VIEW.box && VIEW.box.querySelector('.pv-stage');
+  if (!img || !img.naturalWidth || !st.clientHeight) return;
+  const k = Math.min(st.clientWidth / img.naturalWidth, st.clientHeight / img.naturalHeight, img.classList.contains('pv-small') ? Infinity : 1);
+  img.style.width = Math.round(img.naturalWidth * k) + 'px';
+  img.style.height = Math.round(img.naturalHeight * k) + 'px';
+  if (VIEW.s > 1.01) viewClamp();
+  viewApply(false);
+}
+window.addEventListener('resize', () => { if (VIEW.box) viewFit(); });
+document.addEventListener('keydown', (ev) => {
+  if (!VIEW.box) return;
+  if (ev.key === 'Escape') closeViewer();
+  else if (ev.key === 'ArrowRight') viewGo(1);
+  else if (ev.key === 'ArrowLeft') viewGo(-1);
+  else return;
+  ev.preventDefault();
+}, true);
+function viewKeep(id, url) {
+  VIEW.full.delete(id);
+  VIEW.full.set(id, url);
+  while (VIEW.full.size > VIEW_KEEP) VIEW.full.delete(VIEW.full.keys().next().value);
+}
+function viewFetch(id) {
+  if (VIEW.full.has(id) || viewFetch.asked[id]) return;
+  viewFetch.asked[id] = true;
+  api('photoFull', [id]).then((res) => {
+    delete viewFetch.asked[id];
+    if (!res || !res.url) return;
+    viewKeep(id, res.url);
+    if (VIEW.box && VIEW.ids[VIEW.i] === id) viewShow(0, true);
+  }, () => {
+    delete viewFetch.asked[id];
+    const h = VIEW.box && VIEW.ids[VIEW.i] === id && VIEW.box.querySelector('.pv-hint');
+    if (h) h.textContent = 'Full size needs signal: this is the small picture.';
+  });
+}
+viewFetch.asked = {};
+// Shows photo i (+dir: the next or previous one, sliding in from that side). keep: same photo, sharper picture.
+function viewShow(dir, keep) {
+  const box = VIEW.box, id = VIEW.ids[VIEW.i], img = box.querySelector('.pv-img');
+  const url = VIEW.full.get(id) || S.thumbs[id] || '';
+  if (!keep) { VIEW.s = 1; VIEW.x = 0; VIEW.y = 0; }
+  if (url && img.getAttribute('src') !== url) img.src = url;
+  if (!url) img.removeAttribute('src');
+  img.classList.toggle('pv-small', !VIEW.full.has(id));
+  img.dataset.id = id;
+  if (img.complete) viewFit();
+  const p = S.photos && S.photos.photos && S.photos.photos.find((x) => x.id === id);
+  box.querySelector('.pv-n').textContent = VIEW.ids.length > 1 ? (VIEW.i + 1) + ' of ' + VIEW.ids.length : '';
+  box.querySelector('.pv-info').textContent = p ? [p.area || 'Site photo', nameOfEmail(p.by), niceDay(photoDay(p.at)) + ' ' + p.at.slice(11, 16), p.caption].filter(Boolean).join(' · ') : '';
+  box.querySelector('.pv-hint').textContent = VIEW.full.has(id) ? '' : 'Loading full size…';
+  box.querySelector('.pv-prev').hidden = VIEW.i === 0;
+  box.querySelector('.pv-next').hidden = VIEW.i >= VIEW.ids.length - 1;
+  // Owners: Share (phones) or Download (laptops), once the full-size photo is here.
+  const save = box.querySelector('.pv-save');
+  save.hidden = !canSavePhotos();
+  save.textContent = shareMode() ? 'Share' : 'Download';
+  save.classList.toggle('wait', !VIEW.full.has(id));
+  if (dir) { img.style.transition = 'none'; img.style.transform = 'translate(' + (dir * 40) + 'vw,0)'; void img.offsetWidth; }
+  viewApply(true);
+  wantThumb(id);
+  viewFetch(id);
+  // The neighbours load meanwhile, so a swipe shows them sharp straight away.
+  [VIEW.i + 1, VIEW.i - 1].forEach((j) => { if (VIEW.ids[j]) { wantThumb(VIEW.ids[j]); if (VIEW.full.has(id)) viewFetch(VIEW.ids[j]); } });
+}
+function viewGo(step) {
+  const j = VIEW.i + step;
+  if (!VIEW.box || j < 0 || j >= VIEW.ids.length) { viewApply(true); return; }
+  VIEW.i = j;
+  viewShow(step);
+}
+function viewApply(animate) {
+  const img = VIEW.box && VIEW.box.querySelector('.pv-img');
+  if (!img) return;
+  img.style.transition = animate ? 'transform 0.18s ease-out' : 'none';
+  img.style.transform = 'translate(' + VIEW.x + 'px,' + VIEW.y + 'px) scale(' + VIEW.s + ')';
+  VIEW.box.dataset.zoom = VIEW.s > 1.01 ? 'in' : 'out';
+}
+// Keeps a zoomed photo covering the screen (no dragging it away); at 1x it sits in the middle.
+function viewClamp() {
+  const img = VIEW.box.querySelector('.pv-img'), st = VIEW.box.querySelector('.pv-stage');
+  const mx = Math.max(0, (img.offsetWidth * VIEW.s - st.clientWidth) / 2), my = Math.max(0, (img.offsetHeight * VIEW.s - st.clientHeight) / 2);
+  VIEW.x = Math.min(mx, Math.max(-mx, VIEW.x));
+  VIEW.y = Math.min(my, Math.max(-my, VIEW.y));
+}
+// Zoom to scale s keeping the point under (cx, cy) where it is.
+function viewZoomAt(s, cx, cy) {
+  const st = VIEW.box.querySelector('.pv-stage').getBoundingClientRect();
+  s = Math.min(5, Math.max(1, s));
+  const px = cx - (st.left + st.width / 2), py = cy - (st.top + st.height / 2), k = s / VIEW.s;
+  VIEW.x = px - (px - VIEW.x) * k; VIEW.y = py - (py - VIEW.y) * k; VIEW.s = s;
+  if (s === 1) { VIEW.x = 0; VIEW.y = 0; }
+  viewClamp();
+  viewApply(true);
+}
+function viewDown(ev) {
+  ev.preventDefault();
+  try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (e) { /* moves still arrive while over the photo */ }
+  VIEW.pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  const p = Array.from(VIEW.pts.values());
+  if (p.length === 2) VIEW.g = { pinch: true, d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1, s: VIEW.s, mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2, x: VIEW.x, y: VIEW.y };
+  else if (p.length === 1) VIEW.g = { x0: ev.clientX, y0: ev.clientY, x: VIEW.x, y: VIEW.y, t: Date.now(), moved: false };
+}
+function viewMove(ev) {
+  if (!VIEW.pts.has(ev.pointerId) || !VIEW.g) return;
+  VIEW.pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  const g = VIEW.g, p = Array.from(VIEW.pts.values());
+  if (g.pinch && p.length >= 2) {
+    const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
+    VIEW.s = g.s; VIEW.x = g.x + (mx - g.mx); VIEW.y = g.y + (my - g.my);
+    const st = VIEW.box.querySelector('.pv-stage').getBoundingClientRect();
+    const s = Math.min(5, Math.max(1, g.s * d / g.d)), px = mx - (st.left + st.width / 2), py = my - (st.top + st.height / 2), k = s / VIEW.s;
+    VIEW.x = px - (px - VIEW.x) * k; VIEW.y = py - (py - VIEW.y) * k; VIEW.s = s;
+    viewApply(false);
+    return;
+  }
+  if (g.pinch) return;
+  const dx = ev.clientX - g.x0, dy = ev.clientY - g.y0;
+  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) g.moved = true;
+  if (VIEW.s > 1.01) { VIEW.x = g.x + dx; VIEW.y = g.y + dy; viewClamp(); viewApply(false); return; }
+  // At 1x the photo follows the finger: sideways to change photo, down to close.
+  const img = VIEW.box.querySelector('.pv-img');
+  img.style.transition = 'none';
+  img.style.transform = Math.abs(dx) >= Math.abs(dy) ? 'translate(' + dx + 'px,0)' : 'translate(0,' + Math.max(0, dy) + 'px)';
+}
+function viewUp(ev) {
+  if (!VIEW.pts.has(ev.pointerId)) return;
+  VIEW.pts.delete(ev.pointerId);
+  const g = VIEW.g;
+  if (!g) return;
+  if (g.pinch) {
+    // One finger still down after a pinch: it carries on moving the photo from here.
+    if (VIEW.s < 1.05) { VIEW.s = 1; VIEW.x = 0; VIEW.y = 0; }
+    viewClamp(); viewApply(true);
+    const rest = Array.from(VIEW.pts.values())[0];
+    VIEW.g = rest ? { x0: rest.x, y0: rest.y, x: VIEW.x, y: VIEW.y, t: 0, moved: true } : null;
+    return;
+  }
+  VIEW.g = null;
+  if (ev.type === 'pointercancel') { viewApply(true); return; }
+  const dx = ev.clientX - g.x0, dy = ev.clientY - g.y0;
+  if (!g.moved) {
+    // Double tap: zoom in there, or back out.
+    const now = Date.now();
+    if (now - VIEW.lastTap < 320) { VIEW.lastTap = 0; viewZoomAt(VIEW.s > 1.01 ? 1 : 2.5, ev.clientX, ev.clientY); }
+    else VIEW.lastTap = now;
+    return;
+  }
+  if (VIEW.s > 1.01) return;
+  if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) > 60) viewGo(dx < 0 ? 1 : -1);
+  else if (dy > 110 && Math.abs(dy) > Math.abs(dx)) closeViewer();
+  else viewApply(true);
+}
+
+// Owners: Share (phones: the phone's share sheet with the photo files, nothing saved to the gallery) or Download
+// (laptops: a .jpg, several as one .zip), from the viewer or Select in Site photos. A copy of the photo, never a link.
+const PICK_MAX = 30; // WhatsApp takes 30 at a time
+function canSavePhotos() { return !S.engineer && isOwner(); }
+function shareMode() {
+  if (!navigator.canShare || !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || window.matchMedia('(pointer: coarse)').matches)) return false;
+  try { return navigator.canShare({ files: [new File([new Uint8Array(1)], 'x.jpg', { type: 'image/jpeg' })] }); } catch (e) { return false; }
+}
+function photoById(id) { return (S.photos && S.photos.photos && S.photos.photos.find((x) => x.id === id)) || null; }
+// "NST-Kitchen-5Nov-1432.jpg"
+function photoFileName(p, n) {
+  if (!p) return 'Photo-' + (n || 1) + '.jpg';
+  const d = new Date(photoDay(p.at) + 'T00:00:00');
+  const day = d.getDate() + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+  return [p.project, String(p.area || '').slice(0, 30), day, p.at.slice(11, 16).replace(':', '')].map((x) => String(x || '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean).join('-') + '.jpg';
+}
+function dataBytes(url) {
+  const s = atob(String(url).split(',')[1] || ''), b = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+  return b;
+}
+// items: [{ id, url }] with the full-size pictures already here, so the share sheet opens within the same tap
+// (iPhones refuse it after a wait). say: where to show a message.
+function savePhotos(items, say) {
+  const used = {};
+  const files = items.map((x, i) => {
+    let name = photoFileName(photoById(x.id), i + 1);
+    if (used[name]) name = name.replace(/\.jpg$/, '-' + (++used[name]) + '.jpg'); else used[name] = 1;
+    return { name: name, bytes: dataBytes(x.url), at: (photoById(x.id) || {}).at || '' };
+  });
+  if (shareMode()) {
+    const list = files.map((f) => new File([f.bytes], f.name, { type: 'image/jpeg' }));
+    if (!navigator.canShare({ files: list })) { say('This phone can’t share these from the app.', true); return; }
+    navigator.share({ files: list }).catch((err) => { if (!err || err.name !== 'AbortError') say('Could not share: ' + ((err && err.message) || 'try again'), true); });
+    return;
+  }
+  const one = files.length === 1;
+  saveBlob(one ? new Blob([files[0].bytes], { type: 'image/jpeg' }) : zipStore(files),
+    one ? files[0].name : (photoById(items[0].id) || { project: 'Photos' }).project + '-photos-' + todayIso() + '.zip');
+  say(one ? 'Downloaded ' + files[0].name : 'Downloaded ' + files.length + ' photos as one .zip');
+}
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+// A plain .zip (stored, not compressed: photos are compressed already). files: [{ name, bytes, at }].
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let off = 0;
+  files.forEach((f) => {
+    const name = enc.encode(f.name), n = f.bytes.length, crc = crc32(f.bytes);
+    // The photo's own date and time, as a file date.
+    const m = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)/.exec(f.at || '');
+    const date = m ? ((Number(m[1]) - 1980) << 9) | (Number(m[2]) << 5) | Number(m[3]) : 0x21, time = m ? (Number(m[4]) << 11) | (Number(m[5]) << 5) : 0;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(10, time, true); h.setUint16(12, date, true);
+    h.setUint32(14, crc, true); h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, name.length, true);
+    parts.push(h.buffer, name, f.bytes);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(12, time, true); c.setUint16(14, date, true);
+    c.setUint32(16, crc, true); c.setUint32(20, n, true); c.setUint32(24, n, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    central.push(c.buffer, name);
+    off += 30 + name.length + n;
+  });
+  const size = central.reduce((s, x) => s + x.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob(parts.concat(central, [e.buffer]), { type: 'application/zip' });
+}
+function viewSave() {
+  const id = VIEW.ids[VIEW.i], url = VIEW.full.get(id), h = VIEW.box.querySelector('.pv-hint');
+  const say = (t) => { h.textContent = t; clearTimeout(viewSave.t); viewSave.t = setTimeout(() => { if (VIEW.box) h.textContent = VIEW.full.has(VIEW.ids[VIEW.i]) ? '' : 'Loading full size…'; }, 4000); };
+  if (!url) { say('Still getting the full-size photo…'); viewFetch(id); return; }
+  savePhotos([{ id: id, url: url }], say);
+}
+// Select in Site photos: tap photos to tick them (or a day's "Select all"), then Share / Download. Their full-size
+// pictures load as they are ticked.
+S.phPick = null;
+function pickFetch(id) {
+  const k = S.phPick;
+  if (!k || k.full[id] || k.asked[id]) return;
+  if (VIEW.full.has(id)) { k.full[id] = VIEW.full.get(id); return; }
+  k.asked[id] = true;
+  api('photoFull', [id]).then((res) => { delete k.asked[id]; if (res && res.url && k.ids.indexOf(id) >= 0) { k.full[id] = res.url; bgRedraw(); } }, () => { delete k.asked[id]; });
+}
+function pickToggle(ids, on) {
+  const k = S.phPick;
+  ids.forEach((id) => {
+    const i = k.ids.indexOf(id);
+    if (on && i < 0) { if (k.ids.length >= PICK_MAX) return; k.ids.push(id); pickFetch(id); }
+    else if (!on && i >= 0) { k.ids.splice(i, 1); delete k.full[id]; }
+  });
+  if (on && ids.some((id) => k.ids.indexOf(id) < 0)) snack('Up to ' + PICK_MAX + ' photos at a time.');
+}
+function pickBarHtml() {
+  const k = S.phPick, n = k.ids.length, ready = k.ids.filter((id) => k.full[id]).length;
+  return '<div class="ph-pickbar" role="region" aria-label="Selected photos"><b>' + (n ? plural(n, 'photo', 'photos') + ' selected' : 'Tap photos to select them') + '</b>' +
+    (n ? '<button type="button" class="btn-accent" data-act="ph-pick-save">' + (ready < n ? 'Getting photos… ' + ready + ' of ' + n : (shareMode() ? 'Share ' : 'Download ') + n) + '</button>' : '') +
+    '<button type="button" class="btn-outline" data-act="ph-pick">Cancel</button></div>';
+}
+function pickSave() {
+  const k = S.phPick, missing = k.ids.filter((id) => !k.full[id]);
+  if (missing.length) { missing.forEach(pickFetch); snack('Still getting the full-size photos (' + (k.ids.length - missing.length) + ' of ' + k.ids.length + ')…'); return; }
+  const order = S.feedIds || [];
+  savePhotos(k.ids.slice().sort((a, b) => order.indexOf(a) - order.indexOf(b)).map((id) => ({ id: id, url: k.full[id] })), (t, err) => snack(t, { error: !!err }));
+}
 
 // Photo buttons, the same for owners and engineers. Returns true when it handled the click.
 function photoClick(act, el) {
   const redraw = () => { if (S.engineer) renderEng(); else renderAll(); };
-  if (act === 'ph-open') {
+  if (act === 'ph-open' && S.phPick) { const id = el.dataset.id; pickToggle([id], S.phPick.ids.indexOf(id) < 0); redraw(); }
+  else if (act === 'ph-pick') { S.phPick = S.phPick ? null : { ids: [], full: {}, asked: {} }; S.photoSel = ''; redraw(); }
+  else if (act === 'ph-pickday') {
+    const ids = ((S.photos && S.photos.photos) || []).filter((p) => photoDay(p.at) === el.dataset.d).map((p) => p.id);
+    pickToggle(ids, ids.some((id) => S.phPick.ids.indexOf(id) < 0));
+    redraw();
+  } else if (act === 'ph-pick-save') pickSave();
+  else if (act === 'ph-open') {
     // Opened under its day: tapping the open photo again closes it.
     if (photosInline() && S.photoSel === el.dataset.id) { S.photoSel = ''; redraw(); return true; }
     if (!S.engineer && S.projSec === 'site') S.photosSeenWant = S.projTab;
@@ -3234,6 +3568,10 @@ function photoClick(act, el) {
     redraw();
     const panel = $('phPanel');
     if (panel && photosInline()) panel.scrollIntoView({ block: 'start' });
+  } else if (act === 'ph-view') {
+    const id = el.dataset.id, ids = (S.feedIds || []).indexOf(id) >= 0 ? S.feedIds : [id];
+    // Closing on another photo opens that one in the panel, with its comments.
+    openViewer(ids, id, (last) => { if (last !== S.photoSel && S.photos && S.photos.photos.some((x) => x.id === last)) { openPhoto(last); redraw(); } });
   } else if (act === 'ph-comment') sendPhotoComment(false);
   else if (act === 'ph-task') sendPhotoComment(true);
   else if (act === 'ph-delete') {
@@ -4569,7 +4907,7 @@ function renderAll() {
  * real dates side by side before anything replaces the draft. Engineers log last week's % per activity on Mondays
  * (Today), through the outbox; owners can log or correct any week. The rules themselves are in LedgerCore (core.js). */
 const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-S.schedFold = {}; S.schedSel = {}; S.imp = null; S.logs = {}; S.ownerLog = null; S.schedConfirm = '';
+S.schedFold = {}; S.schedSel = {}; S.imp = null; S.logs = {}; S.ownerLog = null; S.schedConfirm = ''; S.actLog = null; S.actNote = null;
 function schedAll() { return (S.engineer ? S.site && S.site.schedule : S.data && S.data.schedule) || {}; }
 function schedProj(code) { return S.engineer ? ((S.site && S.site.projects) || []).find((p) => p.code === code) || null : projInfo(code); }
 function schedDate(p, n) { return LC.planDate(day1Of(p), n, !!p.sundayOff); }
@@ -4601,6 +4939,23 @@ function teamOf(t) {
 }
 // As shown: the name, else exactly what was typed.
 function teamText(t) { return teamOf(t) || String(t || '').trim(); }
+// A row's team: its own, else (a sub-item with none in the planner) the nearest row above it that has one, marked
+// as inherited. { name, from (the row it comes from, or null) }; name '' when there is none.
+const ACT_BY_ID = new WeakMap();
+function actTeam(a, acts) {
+  if (String(a.team || '').trim()) return { name: teamText(a.team), from: null };
+  let byId = ACT_BY_ID.get(acts);
+  if (!byId) { byId = {}; acts.forEach((x) => { byId[x.id] = x; }); ACT_BY_ID.set(acts, byId); }
+  for (let up = byId[a.parent], n = 0; up && n < 10; up = byId[up.parent], n++) {
+    if (String(up.team || '').trim()) return { name: teamText(up.team), from: up };
+  }
+  return { name: '', from: null };
+}
+function actTeamHtml(t, cls) {
+  if (!t.name) return '';
+  return t.from ? '<span class="' + cls + ' team-inh" title="' + esc('Team of ' + (t.from.no ? '#' + t.from.no + ' ' : '') + t.from.name) + '">' + esc(t.name) + '</span>'
+    : '<span class="' + cls + '">' + esc(t.name) + '</span>';
+}
 function dayRange(p, s, e) {
   const d1 = day1Of(p);
   return 'Day ' + s + (e !== s ? '–' + e : '') + (d1 ? ' · ' + niceDay(schedDate(p, s)) + (e !== s ? ' to ' + niceDay(schedDate(p, e)) : '') : '') + ' · ' + plural(e - s + 1, 'day', 'days');
@@ -4691,10 +5046,10 @@ function schedChartHtml(p, sc, compact) {
     const miss = missed(a, s);
     miss.forEach((w) => { track += bar(Math.max(s.start, w.a), Math.min(s.end, w.b), 'sc-unlog'); });
     // The team (agency) beside its bar: after it, or before it when the bar ends near the right edge.
-    const team = teamText(a.team);
+    const tm = actTeam(a, sc.acts), team = tm.name, inh = tm.from ? ' team-inh' : '';
     // Phones: the team sits under the name (it stays put while the bars scroll); laptops: beside the bar.
-    if (s && team && !compact) track += s.end / N < 0.8 ? '<span class="sc-blabel" style="left:calc(' + pos(s.end + 1) + '% + 6px)">' + esc(team) + '</span>'
-      : '<span class="sc-blabel" style="right:calc(' + (100 - Number(pos(s.start))).toFixed(3) + '% + 6px)">' + esc(team) + '</span>';
+    if (s && team && !compact) track += s.end / N < 0.8 ? '<span class="sc-blabel' + inh + '" style="left:calc(' + pos(s.end + 1) + '% + 6px)">' + esc(team) + '</span>'
+      : '<span class="sc-blabel' + inh + '" style="right:calc(' + (100 - Number(pos(s.start))).toFixed(3) + '% + 6px)">' + esc(team) + '</span>';
     let actText = '';
     if (act && act.start) {
       const as = Math.max(1, schedDayOf(p, act.start)), pe = s ? s.end : N;
@@ -4710,8 +5065,8 @@ function schedChartHtml(p, sc, compact) {
       (miss.length ? ' · not logged: ' + miss.map((w) => 'Wk ' + LC.weekNo(d1, w.m)).join(', ') : '');
     rows += '<button type="button" class="sc-row lv' + a.level + (sel === a.id ? ' on' : '') + (a.status === 'gone' ? ' gone' : '') + '" data-act="sc-pick" data-code="' + esc(p.code) +
       '" data-id="' + esc(a.id) + '" title="' + esc(tip) + '"><span class="sc-no">' + esc(a.no) + '</span><span class="sc-name" title="' + esc(a.name + (team ? ' · ' + team : '')) + '">' +
-      (compact ? '<span class="sc-n1">' + esc(a.name) + '</span>' + (team ? '<span class="sc-n2">' + esc(team) + '</span>' : '') : esc(a.name)) + '</span>' +
-      (compact ? '' : '<span class="sc-team">' + esc(team || (a.clientScope ? 'Client' : '')) + '</span>') +
+      (compact ? '<span class="sc-n1">' + esc(a.name) + '</span>' + (team ? '<span class="sc-n2' + inh + '">' + esc(team) + '</span>' : '') : esc(a.name)) + '</span>' +
+      (compact ? '' : '<span class="sc-team' + inh + '">' + esc(team || (a.clientScope ? 'Client' : '')) + '</span>') +
       '<span class="sc-done">' + (last ? last.pct + '%' : '') + '</span><span class="sc-track">' + track + todayLine + '</span></button>';
     if (sel === a.id) rows += '<div class="sc-inline">' + schedDetailHtml(p, sc, a.id) + '</div>';
   });
@@ -4773,11 +5128,49 @@ function schedDetailHtml(p, sc, id) {
     return '<tr><td>' + esc(weekLabel(p, g.week, true)) + '</td><td class="num">' + (pl === null ? '' : pl + '%') + '</td><td class="num' + (behind ? ' bad' : '') + '">' + g.pct + '%' + (g.rework ? ' <span class="sc-redone" title="Lower than the week before: work redone">redone</span>' : '') + '</td>' +
       '<td>' + esc(g.reason) + '</td><td class="muted">' + esc(firstName(g.by)) + (g.pending ? ' · <span class="sending">Sending…</span>' : '') + '</td></tr>';
   }).join('');
-  const meta = [a.section, a.no ? '#' + a.no : '', teamText(a.team), a.clientScope ? 'Client’s scope' : '', a.kind === 'procurement' ? 'Purchase' : ''].filter(Boolean).join(' · ');
+  const tm = actTeam(a, sc.acts);
+  const meta = [a.section, a.no ? '#' + a.no : '', tm.from ? tm.name + ' (team of #' + (tm.from.no || tm.from.name) + ')' : tm.name, a.clientScope ? 'Client’s scope' : '', a.kind === 'procurement' ? 'Purchase' : ''].filter(Boolean).join(' · ');
   return '<div class="sc-detail"><div class="muted small">' + esc(meta) + '</div><h3>' + esc(a.name) + '</h3>' +
     (a.status === 'gone' ? '<p class="warn-line">Not in the planner any more. Kept because progress was logged for it.</p>' : '') +
-    '<dl class="pdl"><dt>Plan</dt><dd>' + esc(plan) + '</dd>' + (actual ? '<dt>Done</dt><dd>' + esc(actual) + '</dd>' : '') + (a.note ? '<dt>Note</dt><dd>' + esc(a.note) + '</dd>' : '') + '</dl>' +
-    (weeks ? '<table class="sc-weeks"><thead><tr><th>Week</th><th class="num">Plan</th><th class="num">Done</th><th>Why behind</th><th>By</th></tr></thead><tbody>' + weeks + '</tbody></table>' : '') + '</div>';
+    '<dl class="pdl"><dt>Plan</dt><dd>' + esc(plan) + '</dd>' + (actual ? '<dt>Done</dt><dd>' + esc(actual) + '</dd>' : '') + (a.note ? '<dt>Remark</dt><dd>' + esc(a.note) + ' <span class="muted small">(planner)</span></dd>' : '') + '</dl>' +
+    (weeks ? '<table class="sc-weeks"><thead><tr><th>Week</th><th class="num">Plan</th><th class="num">Done</th><th>Why behind</th><th>By</th></tr></thead><tbody>' + weeks + '</tbody></table>' : '') +
+    // Owners: where what they saw and what was logged are 25+ points apart.
+    (S.engineer || !isOwner() ? '' : list.map((g) => { const t = seenGap(sc, g); return t ? '<p class="warn-line an-gap">' + esc(weekLabel(p, g.week).replace(/ · .*/, '') + ': ' + t) + '</p>' : ''; }).join('')) +
+    actHistoryHtml(p, sc, a) + (isOwner() && !S.engineer ? actOwnerHtml(p, sc, a, spans) : '') + '</div>';
+}
+// The panel's history: owners' notes and what they saw on site, newest first, each with who and when.
+function actHistoryHtml(p, sc, a) {
+  const me = S.me && S.me.email;
+  const items = (sc.notes || []).filter((n) => n.activity === a.id).sort((x, y) => (x.at < y.at ? 1 : -1));
+  if (!items.length) return '';
+  return '<div class="an-list"><h4 class="an-h">Notes and site visits</h4>' + items.map((n) => {
+    const head = n.kind === 'seen' ? firstName(n.by) + ' · ' + n.pct + '% · seen ' + niceDay(n.on) : firstName(n.by) + ' · ' + niceDay(n.at.slice(0, 10)) + ' ' + n.at.slice(11, 16);
+    const body = n.kind === 'seen' ? (n.reason ? 'Behind: ' + n.reason : '') : n.text;
+    const del = n.by === me && !S.engineer ? (S.schedConfirm === 'note:' + n.id ? '<button type="button" class="link-btn an-del" data-act="sc-note-del" data-code="' + esc(p.code) + '" data-id="' + esc(n.id) + '">Confirm: remove?</button>'
+      : '<button type="button" class="link-btn an-del" data-act="sc-note-ask" data-code="' + esc(p.code) + '" data-id="' + esc(n.id) + '">Remove</button>') : '';
+    return '<div class="an-item ' + (n.kind === 'seen' ? 'an-seen' : 'an-note') + '"><div class="an-head"><b>' + esc(head) + '</b>' + del + '</div>' + (body ? '<div class="an-body">' + esc(body) + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
+}
+// Owners, in the panel: "Log progress" for this activity only, and "Add note".
+function actOwnerHtml(p, sc, a, spans) {
+  const c = esc(p.code), id = esc(a.id), canLog = LC.loggable(a, spans) && !!day1Of(p) && ownerWeeks(p).length > 0;
+  const logOn = S.actLog && S.actLog.code === p.code && S.actLog.id === a.id, noteOn = S.actNote && S.actNote.code === p.code && S.actNote.id === a.id;
+  let html = '<div class="an-btns">' + (canLog ? '<button type="button" class="btn-outline" data-act="sc-actlog" data-code="' + c + '" data-id="' + id + '" aria-pressed="' + !!logOn + '">Log progress</button>' : '') +
+    '<button type="button" class="btn-outline" data-act="sc-actnote" data-code="' + c + '" data-id="' + id + '" aria-pressed="' + !!noteOn + '">Add note</button></div>';
+  if (logOn) {
+    const weeks = ownerWeeks(p);
+    if (weeks.indexOf(S.actLog.week) < 0) S.actLog.week = weeks[0]; // this week, so far
+    html += '<div class="an-form an-log">' + weekPickHtml(p, weeks, S.actLog.week, 'data-alweek="' + c + '"') + seenNoteHtml(p, S.actLog.week) + logFormHtml(p, S.actLog.week, false, a.id) + '</div>';
+  }
+  if (noteOn) {
+    const n = S.actNote;
+    html += '<div class="an-form an-noteform"><label for="actNote">Note on ' + esc(a.name) + '</label><textarea id="actNote" data-actnote="1" rows="3" maxlength="1000">' + esc(n.text) + '</textarea>' +
+      (n.err ? '<p class="err" role="alert">' + esc(n.err) + '</p>' : '') +
+      '<div class="an-btns"><button type="button" class="btn-accent" data-act="sc-note-save" data-code="' + c + '" data-id="' + id + '">Save note</button>' +
+      '<button type="button" class="btn-outline" data-act="sc-actnote" data-code="' + c + '" data-id="' + id + '">Cancel</button></div>' +
+      '<span class="muted small">Dated today, with your name. Only owners add notes.</span></div>';
+  }
+  return html;
 }
 
 // The project's Schedule section (laptop and phone): the plan, and for owners import and the weekly log.
@@ -4919,40 +5312,63 @@ function importGo() {
  * starts at this week's value if logged, else unpicked with last week's value as a hint; one tap picks it. 25 points
  * or more behind plan needs a reason. */
 function logState(code, monday) { const k = code + '|' + monday; return S.logs[k] || (S.logs[k] = { vals: {}, why: {}, rework: {}, extra: [], err: '', open: false }); }
-function logRows(p, monday) {
+// The current week (owners only): not a log but what they saw so far ("Shruthi · 50% · seen Thu"), against the plan
+// by today. It is saved beside the log; the engineer's Monday value stays the week's value.
+function isSeenWeek(monday) { return monday === LC.weekMonday(todayIso()); }
+// Owners' observations of one activity in one week, newest first (sc.notes, kind 'seen').
+function seenIn(sc, actId, monday) {
+  return (sc.notes || []).filter((n) => n.kind === 'seen' && n.activity === actId && n.week === monday).sort((x, y) => (x.at < y.at ? 1 : -1));
+}
+function seenText(n) { return firstName(n.by) + ' saw ' + n.pct + '% on ' + niceDay(n.on); }
+// A week's logged value and an owner's observation that week 25+ points apart: the observation furthest from it
+// ("Logged 75% · Shruthi saw 25% on Sat 7 Nov"), or null.
+function seenGap(sc, g) {
+  const far = seenIn(sc, g.activity, g.week).filter((n) => Math.abs(n.pct - g.pct) >= LC.BEHIND).sort((x, y) => Math.abs(y.pct - g.pct) - Math.abs(x.pct - g.pct))[0];
+  return far ? 'Logged ' + g.pct + '% · ' + seenText(far) : null;
+}
+// only: one activity (its panel's "Log progress"), whether or not the plan has it that week.
+function logRows(p, monday, only) {
   const sc = schedOf(p.code), d1 = day1Of(p), st = logState(p.code, monday), spans = LC.planSpans(sc.acts), by = LC.progressBy(sc.progress);
-  const list = LC.weekList(sc.acts, sc.progress, d1, monday), end = schedDayOf(p, addDays(monday, 6));
-  st.extra.forEach((id) => {
+  const seen = isSeenWeek(monday), me = S.me && S.me.email;
+  let list = LC.weekList(sc.acts, sc.progress, d1, monday);
+  const end = seen ? schedDayOf(p, todayIso()) : schedDayOf(p, addDays(monday, 6));
+  st.extra.concat(only ? [only] : []).forEach((id) => {
     const a = sc.acts.find((y) => y.id === id);
     if (!a || list.some((x) => x.act.id === id) || !LC.loggable(a, spans)) return;
     list.push({ act: a, span: spans[id], plan: LC.planPct(spans[id], end), before: (by[id] || []).filter((g) => g.week < monday).pop() || null, now: null });
   });
+  if (only) list = list.filter((x) => x.act.id === only);
   const prevMonday = addDays(monday, -7), prevEnd = schedDayOf(p, addDays(monday, -1));
   list.forEach((x) => {
+    // This week: the plan by today, and what I saw today (if I saved it) as the starting value.
+    const obs = seenIn(sc, x.act.id, monday);
+    if (seen) { x.plan = LC.planPct(x.span, end); x.now = obs.find((n) => n.by === me && n.on === todayIso()) || null; }
+    x.seen = obs.find((n) => n !== x.now) || null;
     x.val = st.vals[x.act.id] !== undefined ? st.vals[x.act.id] : x.now ? x.now.pct : null;
     const prev = (by[x.act.id] || []).find((g) => g.week === prevMonday) || null;
     x.behind = LC.needsWhy(x.plan, x.val, prev, LC.planPct(x.span, prevEnd));
     x.twice = x.behind && x.plan - x.val < LC.BEHIND; // behind for the second week running (under 25 points)
     // Lower than the last week logged: asked once ("Fix it" puts it back; "Yes, it was redone" keeps it as rework).
-    x.lower = x.val !== null && !!x.before && x.val < x.before.pct;
+    x.lower = !seen && x.val !== null && !!x.before && x.val < x.before.pct;
     x.redone = x.lower && (st.rework[x.act.id] !== undefined ? st.rework[x.act.id] : !!(x.now && x.now.rework && x.now.pct === x.val));
     x.why = x.behind ? (st.why[x.act.id] !== undefined ? st.why[x.act.id] : x.now ? x.now.reason : '') : '';
   });
-  const others = sc.acts.filter((a) => LC.loggable(a, spans) && !list.some((x) => x.act.id === a.id));
-  return { list: list, others: others, st: st };
+  const others = only ? [] : sc.acts.filter((a) => LC.loggable(a, spans) && !list.some((x) => x.act.id === a.id));
+  return { list: list, others: others, st: st, seen: seen };
 }
-function logFormHtml(p, monday, forEngineer) {
-  const r = logRows(p, monday), c = esc(p.code), w = esc(monday);
+function logFormHtml(p, monday, forEngineer, only) {
+  const r = logRows(p, monday, only), c = esc(p.code), w = esc(monday), byWhen = r.seen ? ' by today' : '';
   if (!r.list.length && !r.others.length) return '<p class="muted">Nothing in the plan to log.</p>';
   const rows = r.list.map((x) => {
     const id = esc(x.act.id);
-    const tag = x.val === null ? ['plan', 'Plan ' + x.plan + '%'] : x.val >= 100 ? ['done', 'Done'] : x.twice ? ['bad', 'Behind 2 weeks · plan ' + x.plan + '%']
-      : x.behind ? ['bad', 'Behind · plan ' + x.plan + '%'] : ['ok', (x.val < x.plan ? 'A little behind' : 'On track') + ' · plan ' + x.plan + '%'];
-    const team = teamText(x.act.team);
+    const tag = x.val === null ? ['plan', 'Plan ' + x.plan + '%' + byWhen] : x.val >= 100 ? ['done', 'Done'] : x.twice ? ['bad', 'Behind 2 weeks · plan ' + x.plan + '%']
+      : x.behind ? ['bad', 'Behind · plan ' + x.plan + '%' + byWhen] : ['ok', (x.val < x.plan ? 'A little behind' : 'On track') + ' · plan ' + x.plan + '%' + byWhen];
+    // Hints, never a value: last week's log, and what an owner saw on site that week.
+    const hints = [x.before ? 'Last time ' + x.before.pct + '% (' + weekLabel(p, x.before.week, true) + ')' : '', x.seen ? seenText(x.seen) : ''].filter(Boolean);
     return '<div class="sl-row"><div class="sl-head"><span class="sl-name">' + esc((x.act.no ? x.act.no + ' · ' : '') + x.act.name) +
-      (team ? '<span class="sl-team">' + esc(team) + '</span>' : '') + '</span><span class="sl-tag ' + tag[0] + '">' + esc(tag[1]) + '</span></div>' +
-      (x.before ? '<span class="muted small">Last time ' + x.before.pct + '% (' + esc(weekLabel(p, x.before.week, true)) + ')</span>' : '') +
-      '<div class="sl-steps" role="group" aria-label="' + esc(x.act.name) + ': done by the end of the week">' + LC.STEPS.map((n) =>
+      actTeamHtml(actTeam(x.act, schedOf(p.code).acts), 'sl-team') + '</span><span class="sl-tag ' + tag[0] + '">' + esc(tag[1]) + '</span></div>' +
+      (hints.length ? '<span class="muted small sl-hint">' + esc(hints.join(' · ')) + '</span>' : '') +
+      '<div class="sl-steps" role="group" aria-label="' + esc(x.act.name) + (r.seen ? ': seen so far this week' : ': done by the end of the week') + '">' + LC.STEPS.map((n) =>
         '<button type="button" class="sl-step' + (x.val === n ? ' on' : '') + '" data-act="sc-step" data-code="' + c + '" data-week="' + w + '" data-id="' + id + '" data-v="' + n + '" aria-pressed="' + (x.val === n) + '">' + n + '%</button>').join('') + '</div>' +
       (x.behind ? '<div class="sl-why"><span>' + (x.twice ? 'Behind plan two weeks in a row' : 'Behind plan') + ' (plan said ' + x.plan + '%). Why?</span><div class="sl-chips">' + LC.REASONS.map((t) =>
         '<button type="button" class="sl-chip' + (x.why === t ? ' on' : '') + '" data-act="sc-why" data-code="' + c + '" data-week="' + w + '" data-id="' + id + '" data-v="' + esc(t) + '" aria-pressed="' + (x.why === t) + '">' + esc(t) + '</button>').join('') + '</div></div>' : '') +
@@ -4964,18 +5380,29 @@ function logFormHtml(p, monday, forEngineer) {
     r.others.map((a) => '<option value="' + esc(a.id) + '">' + esc((a.no ? a.no + ' · ' : '') + a.name) + '</option>').join('') + '</select></label>' : '';
   // The button names the project and week, so the wrong site can't be saved by mistake.
   const sp = LC.weekSpan(day1Of(p), monday);
+  const label = r.seen ? 'Save what I saw · ' + (p.name || p.code) + ' · ' + LC.nice(todayIso()) : 'Save ' + (p.name || p.code) + ' · ' + LC.nice(sp.from) + '–' + LC.nice(sp.to);
   return '<div class="sl-form">' + rows + '<div class="sl-foot">' + add + (r.st.err ? '<p class="err" role="alert">' + esc(r.st.err) + '</p>' : '') +
-    '<button type="button" class="sl-save" data-act="sc-log-save" data-code="' + c + '" data-week="' + w + '">' + esc('Save ' + (p.name || p.code) + ' · ' + LC.nice(sp.from) + '–' + LC.nice(sp.to)) + '</button></div></div>';
+    '<button type="button" class="sl-save" data-act="sc-log-save" data-code="' + c + '" data-week="' + w + '"' + (only ? ' data-id="' + esc(only) + '"' : '') + '>' + esc(label) + '</button></div></div>';
 }
-function logSave(code, monday) {
+function logSave(code, monday, only) {
   const p = schedProj(code);
   if (!p) return;
-  const r = logRows(p, monday), st = r.st;
-  const missing = r.list.filter((x) => x.val === null), noWhy = r.list.filter((x) => x.behind && !x.why), lower = r.list.filter((x) => x.lower && !x.redone);
-  st.err = missing.length ? 'Pick a % for ' + missing.map((x) => x.act.name).join(', ') + '.' : noWhy.length ? 'Pick why ' + noWhy.map((x) => x.act.name).join(', ') + (noWhy.length > 1 ? ' are' : ' is') + ' behind plan.'
+  const r = logRows(p, monday, only), st = r.st;
+  // What an owner saw this week: the activities tapped (at least one); the rest stay as they were.
+  const rows = r.seen ? r.list.filter((x) => x.val !== null) : r.list;
+  const missing = r.seen ? (rows.length ? [] : r.list) : r.list.filter((x) => x.val === null), noWhy = rows.filter((x) => x.behind && !x.why), lower = rows.filter((x) => x.lower && !x.redone);
+  st.err = missing.length ? 'Pick a % for ' + (r.seen && missing.length > 1 ? 'at least one activity' : missing.map((x) => x.act.name).join(', ')) + '.' : noWhy.length ? 'Pick why ' + noWhy.map((x) => x.act.name).join(', ') + (noWhy.length > 1 ? ' are' : ' is') + ' behind plan.'
     : lower.length ? 'Lower than last week: ' + lower.map((x) => x.act.name).join(', ') + '. Fix it, or say it was redone.' : '';
-  if (st.err || !r.list.length) { redraw(); return; }
-  const entries = r.list.map((x) => ({ a: x.act.id, pct: x.val, reason: x.behind ? x.why : '', rework: !!x.redone }));
+  if (st.err || !rows.length) { redraw(); return; }
+  const entries = rows.map((x) => ({ a: x.act.id, pct: x.val, reason: x.behind ? x.why : '', rework: !!x.redone }));
+  if (r.seen) {
+    call('observeProgress', [code, entries], (res) => {
+      delete S.logs[code + '|' + monday];
+      if (only) S.actLog = null;
+      snack(res && res.saved ? 'Saved what you saw (' + plural(res.saved, 'activity', 'activities') + '). The Monday log stays the week’s value.' : 'Nothing changed.');
+    }, (msg) => { st.err = msg; });
+    return;
+  }
   if (S.engineer) {
     outboxAdd('logProgress', [code, monday, entries], 'Progress', { project: code, week: monday }).then(() => {
       delete S.logs[code + '|' + monday];
@@ -4986,16 +5413,33 @@ function logSave(code, monday) {
   }
   call('logProgress', [code, monday, entries], (res) => {
     delete S.logs[code + '|' + monday];
+    if (only) S.actLog = null;
     snack(res && res.saved ? 'Progress saved: ' + weekLabel(p, monday) + '.' : 'Nothing changed.');
   }, (msg) => { st.err = msg; });
 }
+// The weeks an owner can pick: this week ("so far", once the site has started), then the ended weeks, newest first.
+function ownerWeeks(p) {
+  const d1 = day1Of(p), weeks = endedWeeks(p).slice().reverse(), t = todayIso();
+  if (d1 && t >= d1) weeks.unshift(LC.weekMonday(t));
+  return weeks;
+}
+function weekPickHtml(p, weeks, cur, attr) {
+  return '<label class="small">Week <select ' + attr + '>' + weeks.map((m) => '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' +
+    esc(isSeenWeek(m) ? weekLabel(p, m).replace(/ · .*/, '') + ' · this week, so far' : weekLabel(p, m)) + '</option>').join('') + '</select></label>';
+}
+function seenNoteHtml(p, monday) {
+  return isSeenWeek(monday) ? '<p class="muted small">What you saw on site so far this week, saved as your observation with today’s date. ' + esc(engNamesOf(p.code) || 'The site engineer') + '’s Monday log stays the week’s value; he sees yours as a hint.</p>'
+    : '<p class="muted small">What was done by the end of that week. ' + esc(engNamesOf(p.code) || 'The site engineer') + ' logs every Monday; change a value here if it needs correcting.</p>';
+}
+function engNamesOf(code) { return engineersOf(code).map((u) => firstName(u.email)).join(' or '); }
 function ownerLogHtml(p) {
-  const weeks = endedWeeks(p), d1 = day1Of(p);
-  if (!weeks.length) return '<section class="card sl-panel"><p class="muted">Week 1 ends on ' + esc(niceDay(addDays(LC.firstWeek(d1), 6))) + '. A week is logged from the Monday after it.</p></section>';
-  if (weeks.indexOf(S.ownerLog.week) < 0) S.ownerLog.week = weeks[weeks.length - 1];
+  const weeks = ownerWeeks(p), d1 = day1Of(p);
+  if (!weeks.length) return '<section class="card sl-panel"><p class="muted">The site starts on ' + esc(niceDay(d1)) + '. Progress is logged from then.</p></section>';
+  // Opens on the last ended week (the one to check or correct); this week is one pick away.
+  if (weeks.indexOf(S.ownerLog.week) < 0) S.ownerLog.week = weeks.find((m) => !isSeenWeek(m)) || weeks[0];
   return '<section class="card sl-panel" aria-labelledby="ol-h"><div class="sc-imp-head"><h3 id="ol-h">Log progress</h3>' +
-    '<label class="small">Week <select data-slweek="' + esc(p.code) + '">' + weeks.slice().reverse().map((m) => '<option value="' + m + '"' + (m === S.ownerLog.week ? ' selected' : '') + '>' + esc(weekLabel(p, m)) + '</option>').join('') + '</select></label></div>' +
-    '<p class="muted small">What was done by the end of that week. Venky logs every Monday; change a value here if it needs correcting.</p>' + logFormHtml(p, S.ownerLog.week, false) + '</section>';
+    weekPickHtml(p, weeks, S.ownerLog.week, 'data-slweek="' + esc(p.code) + '"') + '</div>' +
+    seenNoteHtml(p, S.ownerLog.week) + logFormHtml(p, S.ownerLog.week, false) + '</section>';
 }
 // His projects with planned work last week to log: { code, p, list, monday, open (still to save) }.
 function engLogItems() {
@@ -5009,8 +5453,10 @@ function engLogItems() {
     return list.length ? { code: code, p: p, list: list, monday: monday, open: !list.every((x) => x.now) || logState(code, monday).open } : null;
   }).filter(Boolean);
 }
-function engLogDue(monday) {
-  const t = todayIso(), late = t > addDays(monday, 7) || new Date().getHours() >= 10;
+// Red from 10:00 on the Monday after the week (and every day after it). at: 'yyyy-mm-dd hh:mm' for the checks; now by default.
+function engLogDue(monday, at) {
+  const t = at ? at.slice(0, 10) : todayIso(), h = at ? Number(at.slice(11, 13)) : new Date().getHours();
+  const late = t > addDays(monday, 7) || h >= 10;
   return { late: late, text: t === addDays(monday, 7) ? (late ? 'was due today at 10 am' : 'due today by 10 am') : 'was due Monday at 10 am' };
 }
 // Top of his Today, while a log is still to save: one line for all his projects ("Log last week's progress · Nest,
@@ -5061,7 +5507,7 @@ function schedWeekHtml(p, sc) {
     else if (s.start > a1 && s.start <= a1 + 7) next.push({ a: a, s: s, l: l });
   });
   const item = (x, kind) => {
-    const a = x.a, s = x.s, team = teamText(a.team), on = S.schedSel[p.code] === a.id;
+    const a = x.a, s = x.s, on = S.schedSel[p.code] === a.id;
     const days = 'Day ' + s.start + (s.end > s.start ? '–' + s.end : '') + ' · ' + LC.nice(schedDate(p, s.start)) + (s.end > s.start ? ' to ' + LC.nice(schedDate(p, s.end)) : '');
     // Coloured by the gap between the plan by Sunday and the last value logged: on track, behind, or far behind.
     const plan = LC.planPct(s, a1), gap = x.l ? plan - x.l.pct : null;
@@ -5073,7 +5519,7 @@ function schedWeekHtml(p, sc) {
       : s.end < a1 ? 'Should finish ' + niceDay(schedDate(p, s.end)) + last
       : 'Should be ' + plan + '% by Sunday' + last;
     return '<button type="button" class="sw-item' + (kind === 'late' ? ' late' : '') + tone + (on ? ' on' : '') + '" data-act="sc-pick" data-code="' + esc(p.code) + '" data-id="' + esc(a.id) + '">' +
-      '<span class="sw-name">' + esc((a.no ? a.no + ' · ' : '') + a.name) + (team ? ' <span class="sl-team">' + esc(team) + '</span>' : '') + '</span>' +
+      '<span class="sw-name">' + esc((a.no ? a.no + ' · ' : '') + a.name) + (actTeam(a, sc.acts).name ? ' ' + actTeamHtml(actTeam(a, sc.acts), 'sl-team') : '') + '</span>' +
       '<span class="sw-days">' + esc(days) + '</span><span class="sw-line">' + esc(line) + '</span></button>' +
       (on ? '<div class="sw-detail">' + schedDetailHtml(p, sc, a.id) + '</div>' : '');
   };
@@ -5112,8 +5558,10 @@ function logSummaryFor(code) {
   const finished = rows.filter((g) => g.pct === 100 && !(by[g.activity] || []).some((x) => x.week < monday && x.pct === 100));
   const lines = behind.slice(0, LOG_LIST_MAX).map((g) => '<span class="ls-line ' + (gap(g) >= LC.BEHIND ? 'far' : 'behind') + '">' + esc(byId[g.activity].name + ': ' + g.reason) + '</span>').join('') +
     (behind.length > LOG_LIST_MAX ? '<span class="ls-line ls-more">+ ' + (behind.length - LOG_LIST_MAX) + ' more</span>' : '');
+  // Logged values 25+ points from what an owner saw on site that week.
+  const gaps = rows.map((g) => { const t = seenGap(sc, g); return t ? '<span class="ls-line far ls-gap">' + esc(byId[g.activity].name + ': ' + t) + '</span>' : ''; }).join('');
   return { box: 'new', kind: 'Log', cls: 'blue', fresh: true, who: who, title: who + ' logged ' + weekLabel(p, monday).replace(/ · .*/, '') + ' · ' + (p.name || code),
-    subHtml: '<span class="ls">' + (behind.length ? lines : '<span class="ls-line">None behind</span>') +
+    subHtml: '<span class="ls">' + (behind.length ? lines : '<span class="ls-line">None behind</span>') + gaps +
       '<span class="ls-line ls-foot"><span class="ls-fin">' + esc(finished.length + ' finished') + '</span> · ' + esc(rows.length + ' logged') + '</span></span>',
     short: (behind.length ? behind.length + ' behind · ' : '') + finished.length + ' finished', act: 'sc-logsum', id: code, week: monday, label: 'Open', canAct: true };
 }
@@ -5153,7 +5601,19 @@ function schedClick(act, el) {
   else if (act === 'sc-why') { const st = logState(code, week); st.why[id] = el.dataset.v; st.err = ''; }
   else if (act === 'sc-lower-fix') { const st = logState(code, week); st.vals[id] = Number(el.dataset.v); st.rework[id] = false; st.err = ''; }
   else if (act === 'sc-lower-ok') { const st = logState(code, week); st.rework[id] = !st.rework[id]; st.err = ''; }
-  else if (act === 'sc-log-save') { logSave(code, week); return true; }
+  else if (act === 'sc-log-save') { logSave(code, week, id || ''); return true; }
+  else if (act === 'sc-actlog') { const on = S.actLog && S.actLog.code === code && S.actLog.id === id; S.actLog = on ? null : { code: code, id: id, week: '' }; S.actNote = null; }
+  else if (act === 'sc-actnote') { const on = S.actNote && S.actNote.code === code && S.actNote.id === id; S.actNote = on ? null : { code: code, id: id, text: '', err: '' }; S.actLog = null; }
+  else if (act === 'sc-note-save') {
+    const n = S.actNote;
+    if (!n || n.sending) return true;
+    if (!String(n.text || '').trim()) { n.err = 'Type the note first.'; redraw(); return true; }
+    n.sending = true;
+    call('addActivityNote', [code, id, n.text], () => { S.actNote = null; snack('Note saved.'); }, (msg) => { n.sending = false; n.err = msg; });
+    return true;
+  }
+  else if (act === 'sc-note-ask') S.schedConfirm = 'note:' + id;
+  else if (act === 'sc-note-del') { call('removeActivityNote', [id], () => snack('Removed.')); return true; }
   else if (act === 'sc-log-open') logState(code, week).open = true;
   else if (act === 'sc-whole') { S.schedWhole[code] = !S.schedWhole[code]; window.scrollTo(0, 0); }
   else if (act === 'sc-ownerlog') S.ownerLog = S.ownerLog && S.ownerLog.code === code ? null : { code: code, week: '' };
@@ -5177,6 +5637,7 @@ function schedChange(t) {
   }
   if (t.dataset.sladd !== undefined) { if (t.value) logState(t.dataset.sladd, t.dataset.week).extra.push(t.value); redraw(); return true; }
   if (t.dataset.slweek !== undefined && S.ownerLog) { S.ownerLog.week = t.value; renderAll(); return true; }
+  if (t.dataset.alweek !== undefined && S.actLog) { S.actLog.week = t.value; renderAll(); return true; }
   return false;
 }
 
@@ -5189,7 +5650,8 @@ document.addEventListener('click', (ev) => {
 });
 // Test app only: what the automated checks can look at when a click seems to do nothing.
 const CLICKS = [];
-if (CONFIG.env === 'test') window.oftDebug = () => ({ clicks: CLICKS.slice(-10), inflight: JSON.parse(JSON.stringify(INFLIGHT)), qc: S.qc && { qid: S.qc.qid, outcome: S.qc.outcome, task: S.qc.task, sending: S.qc.sending, err: S.qc.err }, qSel: S.qSel,
+if (CONFIG.env === 'test') window.oftLogDue = engLogDue; // the "not red before 10:00" check calls it with a test time
+if (CONFIG.env === 'test') window.oftDebug =() => ({ clicks: CLICKS.slice(-10), inflight: JSON.parse(JSON.stringify(INFLIGHT)), qc: S.qc && { qid: S.qc.qid, outcome: S.qc.outcome, task: S.qc.task, sending: S.qc.sending, err: S.qc.err }, qSel: S.qSel,
   lastInvite: S.lastInvite || '', tab: S.tab, projTab: S.projTab, engTab: S.engTab, vis: document.visibilityState, dwgStamp: S.dwgStamp, dwgKeys: S.dwgKeys, poll: POLLDBG, autoSaving: autoSaving });
 function onAct(el) {
   const act = el.dataset.act, id = el.dataset.id, kind = el.dataset.kind, code = el.dataset.code;
@@ -5317,7 +5779,7 @@ function onAct(el) {
     case 'pp-paper': S.paper = el.dataset.v; savePrintChoices(); break;
     case 'pp-orient': S.orient = el.dataset.v; savePrintChoices(); break;
     case 'brief-preview':
-      call('previewBriefs', [], (res) => { S.briefs = res.previews; S.instant = CONFIG.env === 'test' ? res.instant || [] : null; });
+      call('previewBriefs', [], (res) => { S.briefs = res.previews; S.logAlert = res.logAlert || null; S.instant = CONFIG.env === 'test' ? res.instant || [] : null; });
       break;
     case 'alerts-on': enableAlerts(); return;
     case 'test-alert':
@@ -5363,6 +5825,7 @@ function onAct(el) {
 
 document.addEventListener('input', (ev) => {
   const t = ev.target;
+  if (t.dataset.actnote !== undefined) { if (S.actNote) { S.actNote.text = t.value; S.actNote.err = ''; } return; }
   if (t.id === 'code') {
     S.code = t.value; S.armed = ''; S.saveErr = '';
     renderCodebar();
